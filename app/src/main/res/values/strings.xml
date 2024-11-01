@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">DeviceInspectionApp</string>
+    <string name="edit_photo">Редактировать</string>
+    <string name="retake_photo">Переснять</string>
 </resources>
