@@ -1,0 +1,6 @@
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Разрешаем доступ к папке с изображениями -->
+    <external-path
+        name="images"
+        path="Android/data/com.example.deviceinspectionapp/files/Pictures/" />
+</paths>
