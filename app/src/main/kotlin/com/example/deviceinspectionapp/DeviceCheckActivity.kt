@@ -11,10 +11,8 @@ import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
-import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,11 +20,8 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.deviceinspectionapp.R
-import com.example.deviceinspectionapp.StageManager
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileOutputStream
@@ -90,25 +85,23 @@ class DeviceCheckActivity : AppCompatActivity() {
     }
 
     private fun openCamera() {
-        // Создаём файл для сохранения фото
         val fileName = "${uuid}_${currentStageCodeName}_${currentPhotoCodeName}.jpg"
-        originalPhotoFile = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), fileName)
-
-        // Логируем путь файла для отладки
-        Log.d("DeviceCheck", "File path: ${originalPhotoFile?.absolutePath}")
+        originalPhotoFile = File(filesDir, "images/$fileName")  // Сохраняем в директории images внутри filesDir
         Log.d("DeviceCheck", "File exists: ${originalPhotoFile?.exists()}")
 
-        // Проверка существования файла
+        // Убедимся, что директория существует, если нет — создаем
         if (!originalPhotoFile?.exists()!!) {
-            originalPhotoFile?.parentFile?.mkdirs() // Создание директории, если она не существует
+            originalPhotoFile?.parentFile?.mkdirs()
         }
 
+        // Получаем URI для FileProvider
         originalPhotoUri = FileProvider.getUriForFile(
             this,
             "${applicationContext.packageName}.fileprovider",
             originalPhotoFile!!
         )
 
+        // Запускаем камеру
         val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
         cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, originalPhotoUri)
         cameraLauncher.launch(cameraIntent)
@@ -131,12 +124,22 @@ class DeviceCheckActivity : AppCompatActivity() {
     private fun saveThumbnail(photoBitmap: Bitmap) {
         val thumbnail = Bitmap.createScaledBitmap(photoBitmap, 150, 150, true)
         val thumbnailFileName = "thumb_${uuid}_${currentStageCodeName}_${currentPhotoCodeName}.jpg"
-        val thumbnailFile = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), thumbnailFileName)
+        val thumbnailFile = File(filesDir, thumbnailFileName)  // Используем внутреннее хранилище
+
         saveBitmapToFile(thumbnail, thumbnailFile)
 
-        val ivPhoto = findViewById<ImageView>(R.id.ivPhoto)
-        ivPhoto.isVisible = true
-        ivPhoto.setImageBitmap(thumbnail)
+        val thumbnailUri = FileProvider.getUriForFile(
+            this,
+            "${applicationContext.packageName}.fileprovider",
+            thumbnailFile
+        )
+
+        // Обновляем иконку миниатюры
+        currentStageCodeName?.let { stageCodeName ->
+            currentPhotoCodeName?.let { photoCodeName ->
+                stageAdapter.updateThumbnailUri(stageCodeName, photoCodeName, thumbnailUri)
+            }
+        }
     }
 
     private fun saveBitmapToFile(bitmap: Bitmap, file: File) {
@@ -144,18 +147,13 @@ class DeviceCheckActivity : AppCompatActivity() {
             FileOutputStream(file).use { out ->
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
             }
+            Log.d("DeviceCheck", "Фото сохранено: ${file.absolutePath}")
         } catch (e: IOException) {
+            Log.e("DeviceCheck", "Ошибка сохранения фото", e)
             Toast.makeText(this, "Ошибка сохранения фото", Toast.LENGTH_SHORT).show()
         }
     }
 
-    /**
-     * Проверяет и поворачивает изображение при необходимости.
-     *
-     * @param bitmap Bitmap изображения для проверки и поворота.
-     * @param photoUri Uri фото для получения метаданных.
-     * @return Повернутый Bitmap, если требуется, иначе оригинальный.
-     */
     @RequiresApi(Build.VERSION_CODES.N)
     private fun rotateImageIfRequired(bitmap: Bitmap, photoUri: Uri): Bitmap {
         val inputStream = contentResolver.openInputStream(photoUri)
@@ -170,13 +168,6 @@ class DeviceCheckActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Поворачивает Bitmap на указанный угол.
-     *
-     * @param bitmap Bitmap изображения для поворота.
-     * @param degrees Угол поворота.
-     * @return Повернутый Bitmap.
-     */
     private fun rotateBitmap(bitmap: Bitmap, degrees: Float): Bitmap {
         val matrix = Matrix()
         matrix.postRotate(degrees)
