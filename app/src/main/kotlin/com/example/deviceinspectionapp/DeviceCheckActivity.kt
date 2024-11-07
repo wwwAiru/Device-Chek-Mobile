@@ -2,7 +2,6 @@ package com.example.deviceinspectionapp
 
 import PoverkaDTO
 import android.Manifest
-import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -14,6 +13,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
@@ -21,12 +21,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.deviceinspectionapp.R
+import com.example.deviceinspectionapp.StageManager
 import kotlinx.serialization.json.Json
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
-import java.io.OutputStream
 
 class DeviceCheckActivity : AppCompatActivity() {
     private lateinit var stageAdapter: StageManager
@@ -36,6 +40,7 @@ class DeviceCheckActivity : AppCompatActivity() {
     private var currentStageCodeName: String? = null
     private var currentPhotoCodeName: String? = null
     private var originalPhotoUri: Uri? = null
+    private var originalPhotoFile: File? = null
 
     @RequiresApi(Build.VERSION_CODES.N)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,7 +53,7 @@ class DeviceCheckActivity : AppCompatActivity() {
 
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerViewStages)
         recyclerView.layoutManager = LinearLayoutManager(this)
-        stageAdapter = StageManager(poverkaData.stages) { stageCodeName, photoCodeName ->
+        stageAdapter = StageManager(this, poverkaData.stages) { stageCodeName, photoCodeName ->
             currentStageCodeName = stageCodeName
             currentPhotoCodeName = photoCodeName
             onCameraIconClicked()
@@ -57,7 +62,7 @@ class DeviceCheckActivity : AppCompatActivity() {
 
         cameraLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK && originalPhotoUri != null) {
-                val photoBitmap = BitmapFactory.decodeStream(contentResolver.openInputStream(originalPhotoUri!!))
+                val photoBitmap = BitmapFactory.decodeFile(originalPhotoFile?.absolutePath)
                 if (photoBitmap != null) {
                     val rotatedBitmap = rotateImageIfRequired(photoBitmap, originalPhotoUri!!)
                     savePhotoToStorage(rotatedBitmap)
@@ -85,21 +90,28 @@ class DeviceCheckActivity : AppCompatActivity() {
     }
 
     private fun openCamera() {
+        // Создаём файл для сохранения фото
         val fileName = "${uuid}_${currentStageCodeName}_${currentPhotoCodeName}.jpg"
-        val contentValues = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
-            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/DeviceInspectionApp")
+        originalPhotoFile = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), fileName)
+
+        // Логируем путь файла для отладки
+        Log.d("DeviceCheck", "File path: ${originalPhotoFile?.absolutePath}")
+        Log.d("DeviceCheck", "File exists: ${originalPhotoFile?.exists()}")
+
+        // Проверка существования файла
+        if (!originalPhotoFile?.exists()!!) {
+            originalPhotoFile?.parentFile?.mkdirs() // Создание директории, если она не существует
         }
 
-        originalPhotoUri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
-        if (originalPhotoUri != null) {
-            val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-            cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, originalPhotoUri)
-            cameraLauncher.launch(cameraIntent)
-        } else {
-            Toast.makeText(this, "Ошибка доступа к медиахранилищу", Toast.LENGTH_SHORT).show()
-        }
+        originalPhotoUri = FileProvider.getUriForFile(
+            this,
+            "${applicationContext.packageName}.fileprovider",
+            originalPhotoFile!!
+        )
+
+        val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+        cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, originalPhotoUri)
+        cameraLauncher.launch(cameraIntent)
     }
 
     private fun savePhotoToStorage(photoBitmap: Bitmap) {
@@ -108,48 +120,32 @@ class DeviceCheckActivity : AppCompatActivity() {
     }
 
     private fun saveOriginalPhoto(photoBitmap: Bitmap) {
-        if (originalPhotoUri != null) {
-            saveBitmapToUri(photoBitmap, originalPhotoUri!!)
-        } else {
-            Toast.makeText(this, "Ошибка: URI для оригинала не найден", Toast.LENGTH_SHORT).show()
+        originalPhotoFile?.let { file ->
+            saveBitmapToFile(photoBitmap, file)
+            Toast.makeText(this, "Фото сохранено", Toast.LENGTH_SHORT).show()
+        } ?: run {
+            Toast.makeText(this, "Ошибка: файл для оригинала не найден", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun saveThumbnail(photoBitmap: Bitmap) {
         val thumbnail = Bitmap.createScaledBitmap(photoBitmap, 150, 150, true)
-        val thumbnailFileName = "ic_${uuid}_${currentStageCodeName}_${currentPhotoCodeName}.jpg"
-        saveBitmapToStorage(thumbnail, thumbnailFileName)
+        val thumbnailFileName = "thumb_${uuid}_${currentStageCodeName}_${currentPhotoCodeName}.jpg"
+        val thumbnailFile = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), thumbnailFileName)
+        saveBitmapToFile(thumbnail, thumbnailFile)
 
         val ivPhoto = findViewById<ImageView>(R.id.ivPhoto)
         ivPhoto.isVisible = true
         ivPhoto.setImageBitmap(thumbnail)
     }
 
-    private fun saveBitmapToStorage(bitmap: Bitmap, fileName: String) {
-        val contentValues = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
-            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/DeviceInspectionApp")
-        }
-
-        val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
-        if (uri != null) {
-            saveBitmapToUri(bitmap, uri)
-        } else {
-            Toast.makeText(this, "Ошибка доступа к медиахранилищу", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun saveBitmapToUri(bitmap: Bitmap, uri: Uri) {
-        var outputStream: OutputStream? = null
+    private fun saveBitmapToFile(bitmap: Bitmap, file: File) {
         try {
-            outputStream = contentResolver.openOutputStream(uri)
-            outputStream?.let { bitmap.compress(Bitmap.CompressFormat.JPEG, 100, it) }
-            Toast.makeText(this, "Фото сохранено", Toast.LENGTH_SHORT).show()
+            FileOutputStream(file).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+            }
         } catch (e: IOException) {
             Toast.makeText(this, "Ошибка сохранения фото", Toast.LENGTH_SHORT).show()
-        } finally {
-            outputStream?.close()
         }
     }
 
