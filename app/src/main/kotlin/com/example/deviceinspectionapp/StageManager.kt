@@ -57,6 +57,7 @@ class StageManager(
         private val gridLayout: ViewGroup = view.findViewById(R.id.gridLayoutPhotos)
 
         // Привязка данных этапа к UI
+        // Привязка данных этапа к UI
         fun bind(stage: StageDTO) {
             tvStageName.text = stage.caption
             gridLayout.removeAllViews()
@@ -68,33 +69,28 @@ class StageManager(
                 val ivPhoto = photoView.findViewById<ImageView>(R.id.ivPhoto)
                 ivPhoto.setImageResource(R.drawable.ic_camera) // Иконка камеры по умолчанию
 
-                // Путь к файлу изображения
-                val photoFile = File(context.filesDir, "photos/${photo.imageFileName}")
-                val thumbnailFile = File(context.filesDir, "photos/thumb_${photo.imageFileName}")
+                // Используем thumbnailUri, если он установлен
+                val imageUri = photo.thumbnailUri ?: run {
+                    // Если thumbnailUri отсутствует, проверяем файлы в локальном хранилище
+                    val photoFile = File(context.filesDir, "images/${photo.imageFileName}")
+                    val thumbnailFile = File(context.filesDir, "thumb_${photo.imageFileName}")
 
-                Log.d("StageManager", "Photo file: ${photoFile.absolutePath}")
-                Log.d("StageManager", "Thumbnail file: ${thumbnailFile.absolutePath}")
+                    Log.d("StageManager", "Photo file: ${photoFile.absolutePath}")
+                    Log.d("StageManager", "Thumbnail file: ${thumbnailFile.absolutePath}")
 
-                // Проверяем, существует ли основной файл фотографии
-                if (photoFile.exists()) {
-                    val imageUri = FileProvider.getUriForFile(
-                        context,
-                        "${context.packageName}.provider",
-                        photoFile
-                    )
+                    when {
+                        photoFile.exists() -> FileProvider.getUriForFile(context, "${context.packageName}", photoFile)
+                        thumbnailFile.exists() -> FileProvider.getUriForFile(context, "${context.packageName}", thumbnailFile)
+                        else -> null
+                    }
+                }
+
+                // Устанавливаем изображение, если найден URI
+                if (imageUri != null) {
                     ivPhoto.setImageURI(imageUri)
-                    Log.d("StageManager", "Setting full photo")
-                } else if (thumbnailFile.exists()) {
-                    // Если миниатюра существует, загружаем её
-                    val thumbnailUri = FileProvider.getUriForFile(
-                        context,
-                        "${context.packageName}.fileprovider",
-                        thumbnailFile
-                    )
-                    ivPhoto.setImageURI(thumbnailUri)
-                    Log.d("StageManager", "Setting thumbnail photo")
+                    Log.d("StageManager", "Setting photo with URI")
                 } else {
-                    // Если ни фото, ни миниатюры нет, отображаем иконку камеры
+                    // Иконка камеры, если ни фото, ни миниатюры нет
                     ivPhoto.setImageResource(R.drawable.ic_camera)
                     Log.d("StageManager", "Setting camera icon")
                 }
@@ -107,5 +103,6 @@ class StageManager(
                 gridLayout.addView(photoView)
             }
         }
+
     }
 }

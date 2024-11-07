@@ -95,9 +95,10 @@ class DeviceCheckActivity : AppCompatActivity() {
         }
 
         // Получаем URI для FileProvider
+//        getContext()
         originalPhotoUri = FileProvider.getUriForFile(
             this,
-            "${applicationContext.packageName}.fileprovider",
+            applicationContext.packageName,
             originalPhotoFile!!
         )
 
@@ -130,7 +131,7 @@ class DeviceCheckActivity : AppCompatActivity() {
 
         val thumbnailUri = FileProvider.getUriForFile(
             this,
-            "${applicationContext.packageName}.fileprovider",
+            applicationContext.packageName,
             thumbnailFile
         )
 
