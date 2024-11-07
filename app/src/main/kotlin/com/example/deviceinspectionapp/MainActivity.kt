@@ -1,5 +1,8 @@
 package com.example.deviceinspectionapp
 
+import PhotoDTO
+import PoverkaDTO
+import StageDTO
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button

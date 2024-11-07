@@ -1,5 +1,6 @@
 package com.example.deviceinspectionapp
 
+import PoverkaDTO
 import android.Manifest
 import android.content.ContentValues
 import android.content.Intent

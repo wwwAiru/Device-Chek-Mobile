@@ -1,5 +1,6 @@
 package com.example.deviceinspectionapp
 
+import StageDTO
 import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
