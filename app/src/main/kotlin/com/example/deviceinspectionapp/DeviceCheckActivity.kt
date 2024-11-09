@@ -1,7 +1,6 @@
 package com.example.deviceinspectionapp
 
 import PoverkaDTO
-import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -51,10 +50,11 @@ class DeviceCheckActivity : AppCompatActivity() {
         stageAdapter = StageManager(this, poverkaData.stages) { stageCodeName, photoCodeName ->
             currentStageCodeName = stageCodeName
             currentPhotoCodeName = photoCodeName
-            onCameraIconClicked()
+            dispatchTakePictureIntent()
         }
         recyclerView.adapter = stageAdapter
 
+        // Инициализация launcher для камеры
         cameraLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK && originalPhotoUri != null) {
                 val photoBitmap = BitmapFactory.decodeFile(originalPhotoFile?.absolutePath)
@@ -67,45 +67,59 @@ class DeviceCheckActivity : AppCompatActivity() {
             }
         }
 
+        // Запрос разрешения на камеру
         permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (isGranted) {
-                openCamera()
+                dispatchTakePictureIntent()
             } else {
                 Toast.makeText(this, "Разрешение на использование камеры не предоставлено", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun onCameraIconClicked() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            openCamera()
+    private fun dispatchTakePictureIntent() {
+        val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+
+        val cameraAppPackageName = packageManager.queryIntentActivities(takePictureIntent, PackageManager.MATCH_ALL).let {
+            if (it.isNotEmpty()) {
+                it[0].activityInfo.packageName
+            } else {
+                null
+            }
+        }
+        Log.d("DeviceCheck", "cameraAppPackageName $cameraAppPackageName")
+
+        takePictureIntent.setPackage(cameraAppPackageName)
+
+        if (takePictureIntent.resolveActivity(packageManager) != null) {
+            Log.d("DeviceCheck", "Camera app found, launching...")
+
+            // Создаем директорию, если она не существует
+            val photoDir = File(filesDir, "images")
+            if (!photoDir.exists()) {
+                photoDir.mkdirs()
+            }
+
+            originalPhotoFile = File(photoDir, "${uuid}_${currentStageCodeName}_${currentPhotoCodeName}.jpg")
+            originalPhotoUri = FileProvider.getUriForFile(
+                this,
+                applicationContext.packageName,
+                originalPhotoFile!!
+            )
+
+            Log.d("DeviceCheck", "Photo URI: $originalPhotoUri")
+
+            // Логирование пути файла
+            Log.d("DeviceCheck", "Photo file path: ${originalPhotoFile?.absolutePath}")
+
+            takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, originalPhotoUri)
+
+            // Запускаем камеру
+            cameraLauncher.launch(takePictureIntent)
         } else {
-            permissionLauncher.launch(Manifest.permission.CAMERA)
+            Log.d("DeviceCheck", "No camera app found")
+            Toast.makeText(this, "No camera app found.", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    private fun openCamera() {
-        val fileName = "${uuid}_${currentStageCodeName}_${currentPhotoCodeName}.jpg"
-        originalPhotoFile = File(filesDir, "images/$fileName")  // Сохраняем в директории images внутри filesDir
-        Log.d("DeviceCheck", "File exists: ${originalPhotoFile?.exists()}")
-
-        // Убедимся, что директория существует, если нет — создаем
-        if (!originalPhotoFile?.exists()!!) {
-            originalPhotoFile?.parentFile?.mkdirs()
-        }
-
-        // Получаем URI для FileProvider
-//        getContext()
-        originalPhotoUri = FileProvider.getUriForFile(
-            this,
-            applicationContext.packageName,
-            originalPhotoFile!!
-        )
-
-        // Запускаем камеру
-        val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, originalPhotoUri)
-        cameraLauncher.launch(cameraIntent)
     }
 
     private fun savePhotoToStorage(photoBitmap: Bitmap) {
@@ -145,6 +159,7 @@ class DeviceCheckActivity : AppCompatActivity() {
 
     private fun saveBitmapToFile(bitmap: Bitmap, file: File) {
         try {
+            Log.d("DeviceCheck", "Trying to save photo to: ${file.absolutePath}")
             FileOutputStream(file).use { out ->
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
             }
