@@ -79,8 +79,8 @@ class StageManager(
                     Log.d("StageManager", "Thumbnail file: ${thumbnailFile.absolutePath}")
 
                     when {
-                        photoFile.exists() -> FileProvider.getUriForFile(context, "${context.packageName}", photoFile)
-                        thumbnailFile.exists() -> FileProvider.getUriForFile(context, "${context.packageName}", thumbnailFile)
+                        photoFile.exists() -> FileProvider.getUriForFile(context, context.packageName, photoFile)
+                        thumbnailFile.exists() -> FileProvider.getUriForFile(context, context.packageName, thumbnailFile)
                         else -> null
                     }
                 }
