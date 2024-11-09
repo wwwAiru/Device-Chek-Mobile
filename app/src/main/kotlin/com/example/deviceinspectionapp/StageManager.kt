@@ -88,11 +88,11 @@ class StageManager(
                 // Устанавливаем изображение, если найден URI
                 if (imageUri != null) {
                     ivPhoto.setImageURI(imageUri)
-                    Log.d("StageManager", "Setting photo with URI")
+                    Log.d("StageManager", "Устанавливаем изображение")
                 } else {
                     // Иконка камеры, если ни фото, ни миниатюры нет
                     ivPhoto.setImageResource(R.drawable.ic_camera)
-                    Log.d("StageManager", "Setting camera icon")
+                    Log.d("StageManager", "Иконка камеры")
                 }
 
                 // Обработчик клика по фото
