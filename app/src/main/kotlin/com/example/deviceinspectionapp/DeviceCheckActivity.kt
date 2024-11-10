@@ -85,12 +85,13 @@ class DeviceCheckActivity : AppCompatActivity() {
             if (it.isNotEmpty()) {
                 it[0].activityInfo.packageName
             } else {
-                    Log.d("DeviceCheck", "Камера не найдена")
+                Log.d("DeviceCheck", "Камера не найдена")
+                null
             }
         }
         Log.d("DeviceCheck", "cameraAppPackageName $cameraAppPackageName")
 
-        takePictureIntent.setPackage(cameraAppPackageName.toString())
+        takePictureIntent.setPackage(cameraAppPackageName)
 
         if (takePictureIntent.resolveActivity(packageManager) != null) {
             Log.d("DeviceCheck", "Камера найдена, запуск...")

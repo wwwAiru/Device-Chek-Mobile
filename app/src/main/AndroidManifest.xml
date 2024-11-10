@@ -7,6 +7,11 @@
 
     <!-- Разрешения для камеры и сохранения данных -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="true"
