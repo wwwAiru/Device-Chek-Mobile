@@ -14,7 +14,4 @@ data class PhotoDTO(
     val caption: String = "",
     val description: String = "",
     var imageFileName: String,
-
-    @Serializable(with = UriSerializer::class) // Применяем сериализатор для Uri
-    var thumbnailUri: Uri? = null
 )
