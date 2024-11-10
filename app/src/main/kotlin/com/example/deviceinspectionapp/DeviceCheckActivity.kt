@@ -1,5 +1,6 @@
 package com.example.deviceinspectionapp
 
+import DeviceCheckViewModel
 import PoverkaDTO
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -18,6 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.serialization.json.Json
@@ -26,47 +28,63 @@ import java.io.FileOutputStream
 import java.io.IOException
 
 class DeviceCheckActivity : AppCompatActivity() {
+
     private lateinit var stageAdapter: StageManager
     private lateinit var cameraLauncher: ActivityResultLauncher<Intent>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
-    private lateinit var uuid: String
-    private var currentStageCodeName: String? = null
-    private var currentPhotoCodeName: String? = null
-    private var originalPhotoUri: Uri? = null
-    private var originalPhotoFile: File? = null
+    private lateinit var viewModel: DeviceCheckViewModel
 
     @RequiresApi(Build.VERSION_CODES.N)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_device_check)
 
+        viewModel = ViewModelProvider(this)[DeviceCheckViewModel::class.java]
+
         val jsonData = intent.getStringExtra("jsonData")
         val poverkaData = Json.decodeFromString<PoverkaDTO>(jsonData!!)
-        uuid = poverkaData.uuid
+        viewModel.setUuid(poverkaData.uuid)
 
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerViewStages)
         recyclerView.layoutManager = LinearLayoutManager(this)
-        stageAdapter = StageManager(this, poverkaData.stages) { stageCodeName, photoCodeName ->
-            currentStageCodeName = stageCodeName
-            currentPhotoCodeName = photoCodeName
-            dispatchTakePictureIntent()
-        }
+
+        stageAdapter = StageManager(
+            context = this,
+            stages = poverkaData.stages,
+            onCameraIconClicked = { stageCodeName, photoCodeName ->
+                viewModel.setStage(stageCodeName)
+                viewModel.setPhoto(photoCodeName)
+                dispatchTakePictureIntent()
+            },
+            viewModel = viewModel
+        )
         recyclerView.adapter = stageAdapter
 
-        // Инициализация launcher для камеры
+        viewModel.thumbnailUris.observe(this) { updatedUris ->
+            updatedUris.forEach { (key, uri) ->
+                val (stageCodeName, photoCodeName) = key.split("-")
+                Log.d("DeviceCheckActivity", "Обновление URI миниатюры: $stageCodeName, $photoCodeName -> $uri")
+                stageAdapter.updateThumbnailUri(stageCodeName, photoCodeName, uri)
+            }
+            // Принудительное уведомление адаптера о том, что данные изменились
+            stageAdapter.notifyDataSetChanged()
+        }
+
         cameraLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == RESULT_OK && originalPhotoUri != null) {
-                val photoBitmap = BitmapFactory.decodeFile(originalPhotoFile?.absolutePath)
-                if (photoBitmap != null) {
-                    val rotatedBitmap = rotateImageIfRequired(photoBitmap, originalPhotoUri!!)
-                    savePhotoToStorage(rotatedBitmap)
-                } else {
-                    Toast.makeText(this, "Ошибка загрузки фото", Toast.LENGTH_SHORT).show()
+            if (result.resultCode == RESULT_OK) {
+                val photoUri = viewModel.originalPhotoUri.value
+                if (photoUri != null) {
+                    val photoBitmap = BitmapFactory.decodeFile(viewModel.originalPhotoFile.value?.absolutePath)
+                    if (photoBitmap != null) {
+                        val rotatedBitmap = rotateImageIfRequired(photoBitmap, photoUri)
+                        savePhotoToStorage(rotatedBitmap)
+                    } else {
+                        Toast.makeText(this, "Ошибка загрузки фото", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
 
-        // Запрос разрешения на камеру
         permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (isGranted) {
                 dispatchTakePictureIntent()
@@ -79,8 +97,6 @@ class DeviceCheckActivity : AppCompatActivity() {
     @RequiresApi(Build.VERSION_CODES.M)
     private fun dispatchTakePictureIntent() {
         val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-
-        // Поиск доступного приложения камеры
         val cameraAppPackageName = packageManager.queryIntentActivities(takePictureIntent, PackageManager.MATCH_ALL).let {
             if (it.isNotEmpty()) {
                 it[0].activityInfo.packageName
@@ -89,37 +105,32 @@ class DeviceCheckActivity : AppCompatActivity() {
                 null
             }
         }
-        Log.d("DeviceCheck", "cameraAppPackageName $cameraAppPackageName")
-
         takePictureIntent.setPackage(cameraAppPackageName)
 
         if (takePictureIntent.resolveActivity(packageManager) != null) {
-            Log.d("DeviceCheck", "Камера найдена, запуск...")
-
-            // Создаем директорию, если она не существует
             val photoDir = File(filesDir, "images")
             if (!photoDir.exists()) {
                 photoDir.mkdirs()
             }
 
-            originalPhotoFile = File(photoDir, "${uuid}_${currentStageCodeName}_${currentPhotoCodeName}.jpg")
-            originalPhotoUri = FileProvider.getUriForFile(
-                this,
-                applicationContext.packageName,
-                originalPhotoFile!!
-            )
+            val uuid = viewModel.uuid.value
+            val currentStageCodeName = viewModel.currentStageCodeName.value
+            val currentPhotoCodeName = viewModel.currentPhotoCodeName.value
+            val photoIndex = viewModel.currentPhotoIndex.value // Получаем индекс фотографии
 
-            Log.d("DeviceCheck", "Photo URI: $originalPhotoUri")
+            if (currentStageCodeName != null && currentPhotoCodeName != null && photoIndex != null) {
+                val photoFile = File(photoDir, "${uuid}_${currentStageCodeName}_${currentPhotoCodeName}_$photoIndex.jpg")
+                viewModel.setOriginalPhotoFile(photoFile)
 
-            // Логирование пути файла
-            Log.d("DeviceCheck", "Photo file path: ${originalPhotoFile?.absolutePath}")
+                val photoUri = FileProvider.getUriForFile(this, applicationContext.packageName, photoFile)
+                viewModel.setOriginalPhotoUri(photoUri)
 
-            takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, originalPhotoUri)
-
-            // Запускаем камеру
-            cameraLauncher.launch(takePictureIntent)
+                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
+                cameraLauncher.launch(takePictureIntent)
+            } else {
+                Toast.makeText(this, "Не выбраны стадия или фото", Toast.LENGTH_SHORT).show()
+            }
         } else {
-            Log.d("DeviceCheck", "Камера не найдена")
             Toast.makeText(this, "Камера не найдена", Toast.LENGTH_SHORT).show()
         }
     }
@@ -129,8 +140,10 @@ class DeviceCheckActivity : AppCompatActivity() {
         saveThumbnail(photoBitmap)
     }
 
+
+
     private fun saveOriginalPhoto(photoBitmap: Bitmap) {
-        originalPhotoFile?.let { file ->
+        viewModel.originalPhotoFile.value?.let { file ->
             saveBitmapToFile(photoBitmap, file)
             Toast.makeText(this, "Фото сохранено", Toast.LENGTH_SHORT).show()
         } ?: run {
@@ -140,35 +153,30 @@ class DeviceCheckActivity : AppCompatActivity() {
 
     private fun saveThumbnail(photoBitmap: Bitmap) {
         val thumbnail = Bitmap.createScaledBitmap(photoBitmap, 150, 150, true)
-        val thumbnailFileName = "thumb_${uuid}_${currentStageCodeName}_${currentPhotoCodeName}.jpg"
-        val thumbnailFile = File(filesDir, thumbnailFileName)  // Используем внутреннее хранилище
+        val thumbnailFileName = "thumb_${viewModel.uuid.value}_${viewModel.currentStageCodeName.value}_${viewModel.currentPhotoCodeName.value}_${viewModel.currentPhotoIndex.value}.jpg"
+        val thumbnailFile = File(filesDir, thumbnailFileName)
 
         saveBitmapToFile(thumbnail, thumbnailFile)
 
-        val thumbnailUri = FileProvider.getUriForFile(
-            this,
-            applicationContext.packageName,
-            thumbnailFile
-        )
-
-        // Обновляем иконку миниатюры
-        currentStageCodeName?.let { stageCodeName ->
-            currentPhotoCodeName?.let { photoCodeName ->
+        val thumbnailUri = FileProvider.getUriForFile(this, applicationContext.packageName, thumbnailFile)
+        viewModel.currentStageCodeName.value?.let { stageCodeName ->
+            viewModel.currentPhotoCodeName.value?.let { photoCodeName ->
+                viewModel.updatePhotoUri(stageCodeName, photoCodeName, thumbnailUri)
                 stageAdapter.updateThumbnailUri(stageCodeName, photoCodeName, thumbnailUri)
+                Log.d("DeviceCheckActivity", "Сохранение миниатюры: $thumbnailFileName -> $thumbnailUri")
             }
         }
     }
 
+
     private fun saveBitmapToFile(bitmap: Bitmap, file: File) {
         try {
-            Log.d("DeviceCheck", "Trying to save photo to: ${file.absolutePath}")
             FileOutputStream(file).use { out ->
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
             }
-            Log.d("DeviceCheck", "Фото сохранено: ${file.absolutePath}")
         } catch (e: IOException) {
-            Log.e("DeviceCheck", "Ошибка сохранения фото", e)
-            Toast.makeText(this, "Ошибка сохранения фото", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Ошибка сохранения фото: ${e.message}", Toast.LENGTH_SHORT).show()
+            Log.e("DeviceCheck", "Error saving photo: ${e.message}", e)
         }
     }
 
