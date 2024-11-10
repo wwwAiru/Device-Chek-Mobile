@@ -80,19 +80,20 @@ class DeviceCheckActivity : AppCompatActivity() {
     private fun dispatchTakePictureIntent() {
         val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
 
+        // Поиск доступного приложения камеры
         val cameraAppPackageName = packageManager.queryIntentActivities(takePictureIntent, PackageManager.MATCH_ALL).let {
             if (it.isNotEmpty()) {
                 it[0].activityInfo.packageName
             } else {
-                null
+                    Log.d("DeviceCheck", "Камера не найдена")
             }
         }
         Log.d("DeviceCheck", "cameraAppPackageName $cameraAppPackageName")
 
-        takePictureIntent.setPackage(cameraAppPackageName)
+        takePictureIntent.setPackage(cameraAppPackageName.toString())
 
         if (takePictureIntent.resolveActivity(packageManager) != null) {
-            Log.d("DeviceCheck", "Camera app found, launching...")
+            Log.d("DeviceCheck", "Камера найдена, запуск...")
 
             // Создаем директорию, если она не существует
             val photoDir = File(filesDir, "images")
@@ -117,8 +118,8 @@ class DeviceCheckActivity : AppCompatActivity() {
             // Запускаем камеру
             cameraLauncher.launch(takePictureIntent)
         } else {
-            Log.d("DeviceCheck", "No camera app found")
-            Toast.makeText(this, "No camera app found.", Toast.LENGTH_SHORT).show()
+            Log.d("DeviceCheck", "Камера не найдена")
+            Toast.makeText(this, "Камера не найдена", Toast.LENGTH_SHORT).show()
         }
     }
 
