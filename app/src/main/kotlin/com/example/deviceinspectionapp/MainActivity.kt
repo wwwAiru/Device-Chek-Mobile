@@ -1,8 +1,5 @@
 package com.example.deviceinspectionapp
 
-import PhotoDTO
-import PoverkaDTO
-import StageDTO
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
@@ -21,24 +18,7 @@ class MainActivity : AppCompatActivity() {
 
         // Обработчик нажатия кнопки
         btnStartInspection.setOnClickListener {
-            // Создаем тестовые данные, используя новый формат JSON с учетом формата имени файлов
-            val testData = PoverkaDTO(
-                uuid = "3b45f2a2-d2ad-4a0a-bbcf-68b8e25326cf",
-                stages = listOf(
-                    StageDTO(
-                        stageCodeName = "check1",
-                        caption = "пролив №1",
-                        photos = listOf(
-                            PhotoDTO(
-                                photoCodeName = "gidrometr",
-                                caption = "гидрометр",
-                                imageFileName = "3b45f2a2-d2ad-4a0a-bbcf-68b8e25326cf_check1_gidrometr.jpg"
-                            )
-                        )
-                    )
-                )
-            )
-            val jsonData = Json.encodeToString(testData)
+            val jsonData = Json.encodeToString(TestData.createTestInspectionData())
 
             // Переход на DeviceCheckActivity с передачей JSON данных
             val intent = Intent(this, DeviceCheckActivity::class.java).apply {
