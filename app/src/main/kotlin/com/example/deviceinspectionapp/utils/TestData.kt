@@ -25,15 +25,17 @@ class TestData private constructor() {
             )
         }
 
-        // Функция для генерации фотографий на стадию
-        private fun generatePhotos(stageCodeName: String, photoCount: Int): List<PhotoDTO> {
+        fun generatePhotos(stageCodeName: String, count: Int): List<PhotoDTO> {
             val photos = mutableListOf<PhotoDTO>()
-            for (i in 1..photoCount) {
+            for (i in 1..count) {
+                val photoCodeName = "$i"
+                val imageFileName =
+                    "3b45f2a2-d2ad-4a0a-bbcf-68b8e25326cf_${stageCodeName}_$photoCodeName.jpg" // Генерация имени файла
                 photos.add(
                     PhotoDTO(
-                        photoCodeName = "gidrometr",
-                        caption = "гидрометр",
-                        imageFileName = "3b45f2a2-d2ad-4a0a-bbcf-68b8e25326cf_${stageCodeName}_gidrometr_$i.jpg"
+                        photoCodeName = photoCodeName,
+                        caption = "Фото $i для стадии $stageCodeName",
+                        imageFileName = imageFileName
                     )
                 )
             }

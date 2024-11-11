@@ -2,27 +2,15 @@ package com.example.deviceinspectionapp
 
 import android.content.ContentResolver
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
 
 object BitmapUtils {
-
-    fun saveBitmapToFile(bitmap: Bitmap, file: File) {
-        try {
-            FileOutputStream(file).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
-            }
-        } catch (e: IOException) {
-            Log.e("BitmapUtils", "Ошибка сохранения фото: ${e.message}", e)
-        }
-    }
 
     fun rotateBitmap(bitmap: Bitmap, degrees: Float): Bitmap {
         val matrix = Matrix()
@@ -35,6 +23,7 @@ object BitmapUtils {
         val inputStream = contentResolver.openInputStream(photoUri)
         val exif = inputStream?.let { ExifInterface(it) }
         val orientation = exif?.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+        inputStream?.close()
 
         return when (orientation) {
             ExifInterface.ORIENTATION_ROTATE_90 -> rotateBitmap(bitmap, 90f)
@@ -44,13 +33,13 @@ object BitmapUtils {
         }
     }
 
-    fun saveOriginalPhoto(photoBitmap: Bitmap, file: File) {
-        saveBitmapToFile(photoBitmap, file)
+
+    fun createThumbnailFromFile(photoFile: File): Bitmap {
+        val originalBitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
+        return getResizedBitmap(originalBitmap, 100, 100)
     }
 
-    fun saveThumbnail(photoBitmap: Bitmap, thumbnailFile: File): Bitmap {
-        val thumbnail = Bitmap.createScaledBitmap(photoBitmap, 150, 150, true)
-        saveBitmapToFile(thumbnail, thumbnailFile)
-        return thumbnail
+    private fun getResizedBitmap(bitmap: Bitmap, width: Int, height: Int): Bitmap {
+        return Bitmap.createScaledBitmap(bitmap, width, height, true)
     }
 }

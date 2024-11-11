@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class StageDTO(
     val stageCodeName: String,
-    val caption: String = "",
-    val description: String = "",
-    val photos: List<PhotoDTO>
+    val caption: String,
+    val photos: List<PhotoDTO>,
+    var isCompleted: Boolean = false
 )

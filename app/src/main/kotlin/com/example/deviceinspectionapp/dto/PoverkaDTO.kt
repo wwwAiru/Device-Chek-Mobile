@@ -1,5 +1,4 @@
 import kotlinx.serialization.Serializable
-import java.util.UUID
 
 /**
  * Класс данных для описания процесса поверки
@@ -10,8 +9,7 @@ import java.util.UUID
  */
 @Serializable
 data class PoverkaDTO(
-    val uuid: String = UUID.randomUUID().toString(),
-    val caption: String = "",
-    val description: String = "",
-    val stages: List<StageDTO>
+    val uuid: String,                 // Уникальный идентификатор поверки
+    val stages: List<StageDTO> // Список стадий поверки
 )
+
