@@ -1,142 +1,134 @@
-import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.provider.MediaStore
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.TextView
+import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.RecyclerView
 import com.example.deviceinspectionapp.BitmapUtils
+import com.example.deviceinspectionapp.DeviceCheckActivity
 import com.example.deviceinspectionapp.FsUtils
 import com.example.deviceinspectionapp.R
+import com.google.android.flexbox.FlexboxLayout
 import java.io.File
+import java.io.FileOutputStream
+
+/**
+ * https://guides.codepath.com/android/using-the-recyclerview
+ */
 
 class PoverkaAdapter(
-    private val context: Context,
+    private val context: DeviceCheckActivity,
     private val poverkaDTO: PoverkaDTO,
-    private val onCameraIconClicked: (stageCodeName: Int, photoCodeName: Int) -> Unit
-) : RecyclerView.Adapter<PoverkaAdapter.PhotoViewHolder>() {
+) : RecyclerView.Adapter<PoverkaAdapter.StageViewHolder>() {
+    private var currentPhotoIdx: Int = -1
+    private lateinit var currentStageViewHolder: StageViewHolder
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PhotoViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_photo, parent, false)
-        return PhotoViewHolder(view)
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): StageViewHolder {
+        val stageView = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_flexbox, parent, false) as FlexboxLayout
+        Log.d("", "PoverkaAdapter.onCreateViewHolder()")
+        return StageViewHolder(stageView)
     }
 
-    override fun onBindViewHolder(holder: PhotoViewHolder, position: Int) {
+    override fun onBindViewHolder(holder: StageViewHolder, stageIdx: Int) {
+        Log.d("", "PoverkaAdapter.onBindViewHolder(${holder}, $stageIdx )")
         // Находим нужную стадию и фото внутри стадии по позиции
-        var currentPosition = position
-        for (stage in poverkaDTO.stages) {
-            if (currentPosition < stage.photos.size) {
-                val photo = stage.photos[currentPosition]
-                holder.bind(photo, stage.stageCodeName)
-                break
-            }
-            currentPosition -= stage.photos.size
-        }
+        holder.bind(stageIdx, poverkaDTO.stages[stageIdx])
     }
 
     override fun getItemCount(): Int {
-        return poverkaDTO.stages.sumOf { it.photos.size } // Общее количество фотографий во всех стадиях
+        return poverkaDTO.stages.size
     }
 
-    // Метод для обновления миниатюры фотографии по позиции
-    fun updatePhotoThumbnail(stagePosition: Int, photoPosition: Int, thumbnailBitmap: Bitmap) {
-        val itemPosition = getItemPosition(stagePosition, photoPosition)
-        if (itemPosition != -1) {
-            notifyItemChanged(itemPosition)
-        }
+    private fun takePhoto(stageViewHolder: StageViewHolder, photoIdx: Int) {
+        // Запуск камеры для фотографирования
+        val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+
+        takePictureIntent.putExtra("Index", -1)
+
+        val photoFile = File(context.photoDirectory, stageViewHolder.stageDTO.photos[photoIdx].imageFileName)
+        // Создаем дескриптор файла для фото
+        val photoUri = FileProvider.getUriForFile(context, context.packageName, photoFile)
+        takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
+        currentPhotoIdx = photoIdx
+        currentStageViewHolder = stageViewHolder
+        context.takePictureLauncher.launch(takePictureIntent)
     }
 
+    fun processPhotoTakenEvent() {
+        val stageDTO = currentStageViewHolder.stageDTO
+        val photoDTO = stageDTO.photos[currentPhotoIdx]
+        val photoFile = File(context.photoDirectory, photoDTO.imageFileName)
 
-    // Получение позиции элемента по stagePosition и photoPosition
-    private fun getItemPosition(stagePosition: Int, photoPosition: Int): Int {
-        var currentPosition = 0
-        for (stage in poverkaDTO.stages) {
-            if (currentPosition + stage.photos.size > stagePosition) {
-                return currentPosition + photoPosition
+        if (photoFile.exists()) {
+            val thumbnailBitmap = BitmapUtils.createThumbnailFromFile(photoFile)
+            val thumbFile = File(context.photoDirectory,"thumb_${photoDTO.imageFileName}")
+            Log.d("creating thumb", "thumb_${photoDTO.imageFileName}")
+            FileOutputStream(thumbFile).use { out ->
+                thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
             }
-            currentPosition += stage.photos.size
+            notifyItemChanged(currentStageViewHolder.stageIdx)
         }
-        return -1 // В случае ошибки
     }
 
-    inner class PhotoViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        val photoImageView: ImageView = itemView.findViewById(R.id.ivPhoto)
+    inner class StageViewHolder(stageView: View) : RecyclerView.ViewHolder(stageView) {
+        private val flexboxLayout: FlexboxLayout = stageView as FlexboxLayout
+        val photoViews: List<View> = List(10) { // Pre-create item views
+            LayoutInflater.from(stageView.context)
+                .inflate(R.layout.item_photo, flexboxLayout, false)
+        }
+        var stageIdx: Int = -1
+        lateinit var stageDTO: StageDTO
 
-        // В методе bind добавляем проверку на uri
-        fun bind(photoDTO: PhotoDTO, stageCodeName: String) {
-            // Проверяем, есть ли URI
-            if (!photoDTO.uri.isNullOrEmpty()) {
-                val photoFile = File(context.filesDir, photoDTO.imageFileName)
-                if (photoFile.exists()) { // Проверяем, существует ли файл
-                    val thumbnailBitmap = BitmapUtils.createThumbnailFromFile(photoFile)
-                    photoImageView.setImageBitmap(thumbnailBitmap)
-                } else {
-                    // Если файл не найден, установить иконку камеры
-                    setCameraIcon()
+        init {
+            // Add created views to the layout and set them initially to GONE
+            photoViews.forEachIndexed { photoIdx, photoView ->
+                photoView.visibility = View.GONE
+                val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
+                imageView.setOnClickListener {
+                    takePhoto(this, photoIdx)
                 }
-            } else {
-                // Если uri отсутствует, установить иконку камеры
-                setCameraIcon()
+                flexboxLayout.addView(photoView)
             }
         }
 
-        private fun setCameraIcon() {
-            photoImageView.setImageResource(R.drawable.ic_camera)
-            photoImageView.setOnClickListener {
-                val position = adapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    val stagePosition = getStagePosition(position)
-                    val photoPosition = getPhotoPosition(position)
-                    if (stagePosition != -1 && photoPosition != -1) { // Проверка корректности индексов
-                        onCameraIconClicked(stagePosition, photoPosition)
+        fun bind(stageIdx:Int, stageDTO: StageDTO) {
+            this.stageIdx = stageIdx
+            this.stageDTO = stageDTO
+
+            photoViews.forEachIndexed { photoIdx, photoView ->
+                if (photoIdx < stageDTO.photos.size) {
+                    val textView: TextView = photoView.findViewById(R.id.photoName)
+                    textView.text = stageDTO.photos[photoIdx].caption
+
+                    val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
+
+                    if (imageView.tag is Uri) {
+                        Log.d("", "setting thumb ${stageIdx}_${photoIdx} : ${imageView.tag} addr: $imageView")
+                        imageView.setImageURI(imageView.tag as Uri)
+                    } else {
+                        val photoDTO = stageDTO.photos[photoIdx]
+                        val thumbFile = File(context.photoDirectory, "thumb_${photoDTO.imageFileName}")
+
+                        if (thumbFile.exists()) {
+                            imageView.tag = FsUtils.getFileUri(context, thumbFile)
+                            imageView.setImageURI(imageView.tag as Uri)
+                        } else {
+                            Log.d("", "setting ic_camera ${stageIdx}_${photoIdx} : ${imageView.tag} addr: $imageView")
+                            imageView.setImageResource(R.drawable.ic_camera)
+                        }
                     }
+                    photoView.visibility = View.VISIBLE
+                } else {
+                    photoView.visibility = View.GONE
                 }
             }
-        }
-
-
-        // Получение позиции элемента по stagePosition и photoPosition с проверкой индексов
-        private fun getItemPosition(stagePosition: Int, photoPosition: Int): Int {
-            if (stagePosition !in poverkaDTO.stages.indices) {
-                return -1 // В случае ошибки возвращаем -1
-            }
-            val stage = poverkaDTO.stages[stagePosition]
-            if (photoPosition !in stage.photos.indices) {
-                return -1 // В случае ошибки возвращаем -1
-            }
-
-            var currentPosition = 0
-            for ((index, s) in poverkaDTO.stages.withIndex()) {
-                if (index == stagePosition) {
-                    return currentPosition + photoPosition
-                }
-                currentPosition += s.photos.size
-            }
-            return -1 // В случае ошибки
-        }
-
-        // Проверка индексов внутри методов для получения позиции стадии и фотографии
-        private fun getStagePosition(position: Int): Int {
-            var currentPosition = position
-            for ((index, stage) in poverkaDTO.stages.withIndex()) {
-                if (currentPosition < stage.photos.size) {
-                    return index // Возвращаем позицию стадии
-                }
-                currentPosition -= stage.photos.size
-            }
-            return -1 // Если не удалось найти позицию
-        }
-
-        private fun getPhotoPosition(position: Int): Int {
-            var currentPosition = position
-            for (stage in poverkaDTO.stages) {
-                if (currentPosition < stage.photos.size) {
-                    return currentPosition // Возвращаем позицию фотографии
-                }
-                currentPosition -= stage.photos.size
-            }
-            return -1 // Если не удалось найти позицию
         }
     }
 }

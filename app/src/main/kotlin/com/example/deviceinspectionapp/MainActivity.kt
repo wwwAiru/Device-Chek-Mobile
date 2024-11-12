@@ -6,16 +6,15 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.widget.Button
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -27,6 +26,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var photoDirectory: File
     private lateinit var poverkaDTO: PoverkaDTO
 
+    @RequiresApi(Build.VERSION_CODES.M)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -41,7 +41,8 @@ class MainActivity : AppCompatActivity() {
         poverkaDTO = loadOrCreateInspectionData()
 
         // Ищем приложение для камеры
-        findCameraApp()
+        cameraAppPackageName = findCameraApp()
+        //TODO: if null then сообщение + выход
 
         // Кнопка для начала новой поверки
         val btnStartInspection: Button = findViewById(R.id.btnStartInspection)
@@ -84,16 +85,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun findCameraApp() {
-        val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        cameraAppPackageName = packageManager.queryIntentActivities(takePictureIntent, PackageManager.MATCH_ALL).let {
-            if (it.isNotEmpty()) {
-                it[0].activityInfo.packageName
-            } else {
-                Log.d("MainActivity", "Камера не найдена")
-                null
+    @RequiresApi(Build.VERSION_CODES.M)
+    private fun findCameraApp(): String? {
+        return packageManager.queryIntentActivities(
+            Intent(MediaStore.ACTION_IMAGE_CAPTURE),
+            PackageManager.MATCH_ALL
+        )
+            .let {
+                if (it.isNotEmpty()) {
+                    it[0].activityInfo.packageName
+                } else {
+                    Log.d("MainActivity", "Камера не найдена")
+                    Toast.makeText(this, "Приложение камера не найдено", Toast.LENGTH_SHORT).show()
+                    null
+                }
             }
-        }
     }
 
     private fun checkPermissions(): Boolean {
@@ -115,12 +121,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startDeviceCheckActivity() {
-        val jsonData = Json.encodeToString(poverkaDTO)
-        val intent = Intent(this, DeviceCheckActivity::class.java).apply {
-            putExtra("jsonData", jsonData)
-            putExtra("cameraAppPackageName", cameraAppPackageName)
-            putExtra("photoDirectoryPath", photoDirectory.absolutePath)
-        }
+        val poverkaJson = Json.encodeToString(poverkaDTO)
+        val intent = Intent(this, DeviceCheckActivity::class.java)
+            .apply {
+                putExtra("jsonData", poverkaJson)
+                putExtra("cameraAppPackageName", cameraAppPackageName)
+                putExtra("photoDirectoryPath", photoDirectory.absolutePath)
+            }
         startActivity(intent)
     }
 }

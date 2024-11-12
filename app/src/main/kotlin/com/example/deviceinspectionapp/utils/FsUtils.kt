@@ -21,7 +21,7 @@ object FsUtils {
     }
 
     // Сохранить фотографию в внутреннюю директорию (images)
-    fun savePhotoToInternalStorage(context: Context, bitmap: Bitmap, photoFileName: String): File {
+    fun saveBitmapToFile(context: Context, bitmap: Bitmap, photoFileName: String): File {
         val photoDirectory = File(context.filesDir, "images")
         if (!photoDirectory.exists()) {
             if (!photoDirectory.mkdirs()) {

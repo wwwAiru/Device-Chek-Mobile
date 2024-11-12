@@ -14,12 +14,12 @@ class TestData private constructor() {
                     StageDTO(
                         stageCodeName = "check1",
                         caption = "пролив №1",
-                        photos = generatePhotos("check1", 10) // Генерация 10 фотографий для стадии
+                        photos = generatePhotos("check1", 5) // Генерация 10 фотографий для стадии
                     ),
                     StageDTO(
                         stageCodeName = "check2",
                         caption = "пролив №2",
-                        photos = generatePhotos("check2", 10) // Генерация 10 фотографий для стадии
+                        photos = generatePhotos("check2", 6) // Генерация 10 фотографий для стадии
                     )
                 )
             )
@@ -27,7 +27,7 @@ class TestData private constructor() {
 
         fun generatePhotos(stageCodeName: String, count: Int): List<PhotoDTO> {
             val photos = mutableListOf<PhotoDTO>()
-            for (i in 1..count) {
+            for (i in 0 until count) {
                 val photoCodeName = "$i"
                 val imageFileName =
                     "3b45f2a2-d2ad-4a0a-bbcf-68b8e25326cf_${stageCodeName}_$photoCodeName.jpg" // Генерация имени файла

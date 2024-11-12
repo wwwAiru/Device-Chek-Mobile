@@ -65,6 +65,7 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
 
     // Для работы с изображениями
+    implementation(libs.flexbox)
     implementation("androidx.exifinterface:exifinterface:1.3.6")
 
     // Тестовые зависимости
