@@ -16,10 +16,15 @@ import androidx.recyclerview.widget.RecyclerView
 import kotlinx.serialization.json.Json
 import java.io.File
 
+import androidx.activity.viewModels
+import com.example.deviceinspectionapp.model.PhotoViewModel
+
 class DeviceCheckActivity : AppCompatActivity() {
 
     private lateinit var poverkaDTO: PoverkaDTO
     private lateinit var poverkaAdapter: PoverkaAdapter
+
+    private val photoViewModel: PhotoViewModel by viewModels() // Инициализация ViewModel
 
     lateinit var photoDirectory: File
     lateinit var takePictureLauncher: ActivityResultLauncher<Intent>
@@ -37,19 +42,19 @@ class DeviceCheckActivity : AppCompatActivity() {
 
         val recyclerView: RecyclerView = findViewById(R.id.recyclerViewStages)
         recyclerView.layoutManager = LinearLayoutManager(this)
-        poverkaAdapter = PoverkaAdapter(this, poverkaDTO)
+
+        // Передаем ViewModel в адаптер
+        poverkaAdapter = PoverkaAdapter(this, poverkaDTO, photoViewModel)
         recyclerView.adapter = poverkaAdapter
 
         takePictureLauncher = setupTakePictureLauncher()
     }
 
-
     @RequiresApi(Build.VERSION_CODES.N)
     private fun setupTakePictureLauncher(): ActivityResultLauncher<Intent> {
         return registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            Log.d("CameraResult", "ResultCode: ${result.resultCode}, Data: ${result.data}")
             if (result.resultCode == RESULT_OK) {
-                poverkaAdapter.processPhotoTakenEvent()
+                poverkaAdapter.processPhotoTakenEvent() // Обработка события
             } else {
                 Toast.makeText(this, "Фото не было сделано", Toast.LENGTH_SHORT).show()
                 Log.e("CameraError", "Ошибка при съемке фото")
