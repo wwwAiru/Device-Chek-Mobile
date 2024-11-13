@@ -2,13 +2,11 @@ package com.example.deviceinspectionapp
 
 import PoverkaAdapter
 import PoverkaDTO
-import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -22,7 +20,7 @@ class DeviceCheckActivity : AppCompatActivity() {
     private lateinit var poverkaAdapter: PoverkaAdapter
 
     lateinit var photoDirectory: File
-    lateinit var takePictureLauncher: ActivityResultLauncher<Intent>
+    lateinit var takePictureLauncher: ActivityResultLauncher<CameraCall>
 
     @RequiresApi(Build.VERSION_CODES.N)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,11 +43,11 @@ class DeviceCheckActivity : AppCompatActivity() {
 
 
     @RequiresApi(Build.VERSION_CODES.N)
-    private fun setupTakePictureLauncher(): ActivityResultLauncher<Intent> {
-        return registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            Log.d("CameraResult", "ResultCode: ${result.resultCode}, Data: ${result.data}")
-            if (result.resultCode == RESULT_OK) {
-                poverkaAdapter.processPhotoTakenEvent()
+    private fun setupTakePictureLauncher(): ActivityResultLauncher<CameraCall> {
+        return registerForActivityResult(CameraCallResultPassingThrough()) { result ->
+            Log.d("CameraResult", "Result: ${result}")
+            if (result != null) {
+                poverkaAdapter.processPhotoTakenEvent(result)
             } else {
                 Toast.makeText(this, "Фото не было сделано", Toast.LENGTH_SHORT).show()
                 Log.e("CameraError", "Ошибка при съемке фото")

@@ -11,6 +11,7 @@ import android.widget.TextView
 import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.RecyclerView
 import com.example.deviceinspectionapp.BitmapUtils
+import com.example.deviceinspectionapp.CameraCall
 import com.example.deviceinspectionapp.DeviceCheckActivity
 import com.example.deviceinspectionapp.FsUtils
 import com.example.deviceinspectionapp.R
@@ -26,8 +27,8 @@ class PoverkaAdapter(
     private val context: DeviceCheckActivity,
     private val poverkaDTO: PoverkaDTO,
 ) : RecyclerView.Adapter<PoverkaAdapter.StageViewHolder>() {
-    private var currentPhotoIdx: Int = -1
-    private lateinit var currentStageViewHolder: StageViewHolder
+//    private var currentPhotoIdx: Int = -1
+//    private lateinit var currentStageViewHolder: StageViewHolder
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): StageViewHolder {
         val stageView = LayoutInflater.from(parent.context)
@@ -47,33 +48,27 @@ class PoverkaAdapter(
     }
 
     private fun takePhoto(stageViewHolder: StageViewHolder, photoIdx: Int) {
-        // Запуск камеры для фотографирования
-        val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-
-        takePictureIntent.putExtra("Index", -1)
-
         val photoFile = File(context.photoDirectory, stageViewHolder.stageDTO.photos[photoIdx].imageFileName)
         // Создаем дескриптор файла для фото
         val photoUri = FileProvider.getUriForFile(context, context.packageName, photoFile)
-        takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
-        currentPhotoIdx = photoIdx
-        currentStageViewHolder = stageViewHolder
-        context.takePictureLauncher.launch(takePictureIntent)
+        // Запуск камеры для фотографирования
+        context.takePictureLauncher.launch(CameraCall(photoUri, stageViewHolder.stageIdx))
     }
 
-    fun processPhotoTakenEvent() {
-        val stageDTO = currentStageViewHolder.stageDTO
-        val photoDTO = stageDTO.photos[currentPhotoIdx]
-        val photoFile = File(context.photoDirectory, photoDTO.imageFileName)
+    fun processPhotoTakenEvent(call: CameraCall) {
+//        val stageDTO = currentStageViewHolder.stageDTO
+//        val photoDTO = stageDTO.photos[currentPhotoIdx]
+        val fileName = call.fileUri.path!!.substring(call.fileUri.path!!.lastIndexOf('/') + 1, call.fileUri.path!!.length)
+        val photoFile = File(context.photoDirectory, fileName)
 
         if (photoFile.exists()) {
             val thumbnailBitmap = BitmapUtils.createThumbnailFromFile(photoFile)
-            val thumbFile = File(context.photoDirectory,"thumb_${photoDTO.imageFileName}")
-            Log.d("creating thumb", "thumb_${photoDTO.imageFileName}")
+            val thumbFile = File(context.photoDirectory,"thumb_${fileName}")
+            Log.d("creating thumb", "thumb_${fileName}")
             FileOutputStream(thumbFile).use { out ->
                 thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
             }
-            notifyItemChanged(currentStageViewHolder.stageIdx)
+            notifyItemChanged(call.stageIdx)
         }
     }
 
