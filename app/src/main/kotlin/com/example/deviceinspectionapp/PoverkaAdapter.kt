@@ -150,31 +150,34 @@ class PoverkaAdapter(
             this.stageDTO = stageDTO
 
             photoViews.forEachIndexed { photoIdx, photoView ->
+                val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
+
+                // Сбросьте изображение и тег перед установкой миниатюры
+                imageView.setImageDrawable(null)
+                imageView.tag = null
+
                 if (photoIdx < stageDTO.photos.size) {
                     val textView: TextView = photoView.findViewById(R.id.photoName)
                     textView.text = stageDTO.photos[photoIdx].caption
 
-                    val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
+                    val photoDTO = stageDTO.photos[photoIdx]
+                    val thumbFile = File(context.photoDirectory, "thumb_${photoDTO.imageFileName}")
 
-                    if (imageView.tag is Uri) {
-                        imageView.setImageURI(imageView.tag as Uri)
+                    if (thumbFile.exists()) {
+                        val thumbUri = FsUtils.getFileUri(context, thumbFile)
+                        imageView.setImageURI(thumbUri)
+                        imageView.tag = thumbUri
                     } else {
-                        val photoDTO = stageDTO.photos[photoIdx]
-                        val thumbFile =
-                            File(context.photoDirectory, "thumb_${photoDTO.imageFileName}")
-
-                        if (thumbFile.exists()) {
-                            imageView.tag = FsUtils.getFileUri(context, thumbFile)
-                            imageView.setImageURI(imageView.tag as Uri)
-                        } else {
-                            imageView.setImageResource(R.drawable.ic_camera)
-                        }
+                        // Если миниатюры нет, установите значок камеры
+                        imageView.setImageResource(R.drawable.ic_camera)
                     }
+
                     photoView.visibility = View.VISIBLE
                 } else {
                     photoView.visibility = View.GONE
                 }
             }
         }
+
     }
 }
