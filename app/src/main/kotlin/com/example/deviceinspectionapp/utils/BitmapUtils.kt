@@ -34,10 +34,15 @@ object BitmapUtils {
     }
 
 
-    fun createThumbnailFromFile(photoFile: File): Bitmap {
+    @RequiresApi(Build.VERSION_CODES.N)
+    fun createThumbnailFromFile(photoFile: File, contentResolver: ContentResolver): Bitmap {
         val originalBitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
-        return getResizedBitmap(originalBitmap, 100, 100)
+        val photoUri = Uri.fromFile(photoFile)
+        // Повернуть изображение, если требуется
+        val rotatedBitmap = rotateImageIfRequired(originalBitmap, photoUri, contentResolver)
+        return getResizedBitmap(rotatedBitmap, 100, 100)
     }
+
 
     private fun getResizedBitmap(bitmap: Bitmap, width: Int, height: Int): Bitmap {
         return Bitmap.createScaledBitmap(bitmap, width, height, true)

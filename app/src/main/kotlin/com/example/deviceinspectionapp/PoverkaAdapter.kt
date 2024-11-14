@@ -1,6 +1,7 @@
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import android.view.LayoutInflater
@@ -8,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.RecyclerView
 import com.example.deviceinspectionapp.BitmapUtils
@@ -57,6 +59,7 @@ class PoverkaAdapter(
         context.takePictureLauncher.launch(CameraCall(photoUri, stageViewHolder.stageIdx))
     }
 
+    @RequiresApi(Build.VERSION_CODES.N)
     fun processPhotoTakenEvent(call: CameraCall) {
 //        val stageDTO = currentStageViewHolder.stageDTO
 //        val photoDTO = stageDTO.photos[currentPhotoIdx]
@@ -67,7 +70,7 @@ class PoverkaAdapter(
         val photoFile = File(context.photoDirectory, fileName)
 
         if (photoFile.exists()) {
-            val thumbnailBitmap = BitmapUtils.createThumbnailFromFile(photoFile)
+            val thumbnailBitmap = BitmapUtils.createThumbnailFromFile(photoFile, context.contentResolver)
             val thumbFile = File(context.photoDirectory, "thumb_${fileName}")
             Log.d("creating thumb", "thumb_${fileName}")
             FileOutputStream(thumbFile).use { out ->
