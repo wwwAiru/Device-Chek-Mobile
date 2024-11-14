@@ -6,12 +6,6 @@
     android:background="#EFEFEF"
     app:flexWrap="nowrap"
     >
-<!--    app:alignContent="flex_start"-->
-<!--    >-->
-<!--    android:flexDirection="row"-->
-<!--    android:flexWrap="wrap"-->
-<!--    >-->
 
-    <!-- TextViews will be added programmatically -->
 
 </com.google.android.flexbox.FlexboxLayout>

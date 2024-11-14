@@ -50,6 +50,9 @@ android {
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.3")
+    // для переопределения ActivityResultContract
+    implementation ("androidx.activity:activity-ktx:1.9.3")
+    implementation ("androidx.fragment:fragment-ktx:1.8.5")
     // Базовые зависимости Android
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
