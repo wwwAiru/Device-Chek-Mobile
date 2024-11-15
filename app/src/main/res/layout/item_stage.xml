@@ -1,5 +1,5 @@
+<!-- item_stage.xml -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical">
@@ -10,18 +10,22 @@
         android:layout_height="wrap_content"
         android:text="Этап" />
 
-    <GridView
+    <!-- Контейнер для фотографий в сетке с прокруткой -->
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:padding="8dp">
 
         <GridLayout
             android:id="@+id/gridLayoutPhotos"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:columnCount="2"
+            android:columnCount="1"
             android:orientation="horizontal"
             android:padding="8dp">
+        <!-- Здесь будут размещены элементы для фотографий -->
         </GridLayout>
 
-    </GridView>
+    </ScrollView>
+
 </LinearLayout>
