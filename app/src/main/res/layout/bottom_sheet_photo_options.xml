@@ -15,14 +15,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@+id/editButton"
-        app:layout_constraintHeight_percent="0.75" />
+        app:layout_constraintHeight_percent="0.75"/>
 
     <!-- Кнопка для редактирования фото -->
     <Button
         android:id="@+id/editButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Редактировать"
+        android:text="@string/bottom_sheet_button_edit"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@+id/retakeButton" />
@@ -32,7 +32,7 @@
         android:id="@+id/retakeButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Переснять"
+        android:text="@string/bottom_sheet_button_retake"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent" />

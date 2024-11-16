@@ -2,4 +2,6 @@
     <string name="app_name">DeviceInspectionApp</string>
     <string name="edit_photo">Редактировать</string>
     <string name="retake_photo">Переснять</string>
+    <string name="bottom_sheet_button_edit">Редактировать</string>
+    <string name="bottom_sheet_button_retake">Переснять</string>
 </resources>
