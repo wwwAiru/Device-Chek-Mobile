@@ -9,7 +9,7 @@ import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -34,10 +34,8 @@ class DeviceCheckActivity : AppCompatActivity() {
 
         poverkaDTO = Json.decodeFromString(jsonData ?: String())
 
-        // Настроим RecyclerView с GridLayoutManager
         val recyclerView: RecyclerView = findViewById(R.id.recyclerViewStages)
-        val gridLayoutManager = GridLayoutManager(this, 2) // 2 колонки для фото
-        recyclerView.layoutManager = gridLayoutManager
+        recyclerView.layoutManager = LinearLayoutManager(this)
 
         // Создаем и устанавливаем адаптер
         poverkaAdapter = PoverkaAdapter(this, poverkaDTO)
