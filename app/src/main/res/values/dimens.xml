@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Общий паддинг для стадий -->
+    <dimen name="activity_device_check_padding">5dp</dimen>
+
+    <!-- Паддинг для item_photo LinearLayout -->
+    <dimen name="item_photo_linearlayout_padding">5dp</dimen>
+
+    <!-- Маржин для item_photo CardView -->
+    <dimen name="item_photo_cardview_margin">8dp</dimen>
+
+    <!-- Паддинг для иконки -->
+    <dimen name="item_photo_icon_padding">4dp</dimen>
+
+    <!-- Паддинг для item_stage ScrollView -->
+    <dimen name="item_stage_scrollview_padding">8dp</dimen>
+
+    <!-- Паддинг для item_stage FlexboxLayout -->
+    <dimen name="item_stage_flexbox_padding">8dp</dimen>
+</resources>
