@@ -1,30 +1,35 @@
 <!-- item_stage.xml -->
+
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical">
 
     <TextView
         android:id="@+id/tvStageName"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
         android:text="Этап" />
 
-    <!-- Контейнер для фотографий в сетке с прокруткой -->
+    <!-- Контейнер для фотографий -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="8dp">
+        android:padding="@dimen/item_stage_scrollview_padding">
 
-        <GridLayout
-            android:id="@+id/gridLayoutPhotos"
+        <com.google.android.flexbox.FlexboxLayout
+            android:id="@+id/flexLayoutPhotos"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:columnCount="1"
-            android:orientation="horizontal"
-            android:padding="8dp">
-        <!-- Здесь будут размещены элементы для фотографий -->
-        </GridLayout>
+            app:flexWrap="wrap"
+            app:justifyContent="flex_start"
+            app:alignItems="center"
+            android:padding="@dimen/item_stage_flexbox_padding"
+            android:orientation="horizontal">
+
+        </com.google.android.flexbox.FlexboxLayout>
 
     </ScrollView>
 
