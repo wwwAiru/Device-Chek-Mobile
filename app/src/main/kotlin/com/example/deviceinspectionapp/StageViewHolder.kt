@@ -2,21 +2,19 @@ package com.example.deviceinspectionapp
 
 import StageDTO
 import android.content.Context
-import android.graphics.Point
 import android.net.Uri
 import android.os.Build
 import android.util.DisplayMetrics
-import android.view.Display
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
-import android.view.WindowMetrics
-import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.RecyclerView
+import com.example.deviceinspectionapp.preferences.AppPreferences
+import com.google.android.flexbox.FlexboxLayout
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.io.File
 
@@ -24,29 +22,38 @@ class StageViewHolder(
     private val context: DeviceCheckActivity,
     stageView: View,
 ) : RecyclerView.ViewHolder(stageView) {
-    private val gridLayout: GridLayout = stageView.findViewById(R.id.gridLayoutPhotos)
+    private val flexLayout: FlexboxLayout = stageView.findViewById(R.id.flexLayoutPhotos)
     private val photoViews: List<View> = List(10) {
         LayoutInflater.from(stageView.context)
-            .inflate(R.layout.item_photo, gridLayout, false)
+            .inflate(R.layout.item_photo, flexLayout, false)
     }
     private var stageIdx: Int = -1
     private lateinit var stageDTO: StageDTO
 
     init {
-        val iconSize = calculateIconSize(context) // Вычисляем размер иконок
-        photoViews.forEachIndexed { photoIdx, photoView ->
-            photoView.visibility = View.GONE
-            val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
+        // Вычисляем размер иконок в зависимости от устройства и версии
+        val iconSize = calculateIconSize(context)
 
-            // Устанавливаем динамический размер для иконок
-            imageView.layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
-            // Обновление в onClick для ImageView
+        // Перебираем все фото
+        photoViews.forEachIndexed { photoIdx, photoView ->
+            photoView.visibility = View.GONE  // Скрываем фото до тех пор, пока не будет установлено
+
+            val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
+            val textView: TextView = photoView.findViewById(R.id.photoName)
+
+
+            // Устанавливаем динамический размер для иконок и текста
+            val layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+            imageView.layoutParams = layoutParams
+            textView.maxWidth = iconSize
+
+            // Устанавливаем обработчик клика на фото
             imageView.setOnClickListener {
                 val photoDTO = stageDTO.photos[photoIdx]
                 val photoFile = File(context.photoDirectory, photoDTO.imageFileName)
 
                 if (photoFile.exists()) {
-                    // Открываем BottomSheetDialog, если фото уже существует
+                    // Фото существует, показываем BottomSheet с опциями
                     showPhotoOptionsBottomSheet(photoIdx)
                 } else {
                     // Иначе начинаем процесс фотографирования
@@ -54,9 +61,11 @@ class StageViewHolder(
                 }
             }
 
-            gridLayout.addView(photoView)
+            // Добавляем фото в FlexboxLayout
+            flexLayout.addView(photoView)
         }
     }
+
 
     fun bind(stageIdx: Int, stageDTO: StageDTO) {
         this.stageIdx = stageIdx
@@ -73,6 +82,9 @@ class StageViewHolder(
 
                 val thumbFile = File(context.photoDirectory, "thumb_${photoDTO.imageFileName}")
 
+                // Сбрасываем кэш изображения перед обновлением
+                imageView.setImageDrawable(null)
+
                 if (thumbFile.exists()) {
                     imageView.setImageURI(FsUtils.getFileUri(context, thumbFile))
                 } else {
@@ -88,31 +100,45 @@ class StageViewHolder(
     }
 
     private fun calculateIconSize(context: Context): Int {
-        val size = Point()
 
-        // Проверка версии Android и использование соответствующего метода
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // Для Android 11 (API 30) и выше
-            val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-            val windowMetrics: WindowMetrics = windowManager.currentWindowMetrics
-            windowMetrics.bounds.let {
-                size.set(it.width(), it.height())
-            }
+        // Получаем размеры экрана
+        val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val windowMetrics = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            windowManager.currentWindowMetrics
         } else {
-            // Для более старых версий Android
-            val displayMetrics = DisplayMetrics()
-            val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-            val display: Display? = windowManager.defaultDisplay // Для старых версий
-            if (display != null) {
-                display.getMetrics(displayMetrics)
-                size.set(displayMetrics.widthPixels, displayMetrics.heightPixels)
-            }
+            val display = windowManager.defaultDisplay
+            @Suppress("DEPRECATION")
+            display.getMetrics(DisplayMetrics())
+            return DisplayMetrics().widthPixels
         }
 
-        val screenWidth = size.x
-        // Размер иконки вычисляем как примерно треть ширины экрана, можно изменить деление для других размеров.
-        return (screenWidth / 3.5).toInt()  // Здесь можно изменить деление для другой пропорции
+        val screenWidth = windowMetrics.bounds.width()
+
+        // Получаем количество иконок в строке из AppPreferences
+        val iconsInRow = AppPreferences.getIconsInRow(context)
+
+        // Получаем размеры отступов контейнера и иконок из ресурсов
+        val containerPadding = context.resources.getDimensionPixelSize(R.dimen.activity_device_check_padding) * 2 // для обеих сторон (левая и правая)
+        val photoLinearLayoutPadding = context.resources.getDimensionPixelSize(R.dimen.item_photo_linearlayout_padding) * 2
+        val stageScrollViewPadding = context.resources.getDimensionPixelSize(R.dimen.item_stage_scrollview_padding) * 2
+        val stageFlexboxPadding = context.resources.getDimensionPixelSize(R.dimen.item_stage_flexbox_padding) * 2
+        val photoIconPadding = context.resources.getDimensionPixelSize(R.dimen.item_photo_icon_padding) * 2
+        val photoIconMargin = context.resources.getDimensionPixelSize(R.dimen.item_photo_cardview_margin) * 2
+
+        // Рассчитываем доступную ширину для иконок с учетом паддингов и маржинов
+        val availableWidth = screenWidth -
+                            containerPadding -
+                            photoLinearLayoutPadding -
+                            stageScrollViewPadding -
+                            stageFlexboxPadding -
+                            (photoIconPadding * iconsInRow) -
+                            (photoIconMargin * iconsInRow)
+
+        // Рассчитываем размер каждой иконки
+        return (availableWidth / iconsInRow)
     }
+
+
 
     // Функция отображения BottomSheetDialog для фото
     private fun showPhotoOptionsBottomSheet(photoIdx: Int) {
