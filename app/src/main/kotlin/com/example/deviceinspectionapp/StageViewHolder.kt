@@ -1,6 +1,5 @@
 package com.example.deviceinspectionapp
 
-import PoverkaDTO
 import StageDTO
 import android.content.Context
 import android.graphics.Point
@@ -22,13 +21,9 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.io.File
 
 class StageViewHolder(
-    private val stageView: View,
     private val context: DeviceCheckActivity,
-    private val poverkaDTO: PoverkaDTO,
-    private val takePictureLauncher: (CameraCall) -> Unit,
-    private val photoDirectory: File
+    stageView: View,
 ) : RecyclerView.ViewHolder(stageView) {
-
     private val gridLayout: GridLayout = stageView.findViewById(R.id.gridLayoutPhotos)
     private val photoViews: List<View> = List(10) {
         LayoutInflater.from(stageView.context)
@@ -52,10 +47,10 @@ class StageViewHolder(
 
                 if (photoFile.exists()) {
                     // Открываем BottomSheetDialog, если фото уже существует
-                    showPhotoOptionsBottomSheet(stageIdx, photoIdx)
+                    showPhotoOptionsBottomSheet(photoIdx)
                 } else {
                     // Иначе начинаем процесс фотографирования
-                    takePhoto(this, photoIdx)
+                    takePhoto(photoIdx)
                 }
             }
 
@@ -70,21 +65,16 @@ class StageViewHolder(
         photoViews.forEachIndexed { photoIdx, photoView ->
             val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
 
-            // Сбросьте изображение и тег перед установкой миниатюры
-            imageView.setImageDrawable(null)
-            imageView.tag = null
+            if (photoIdx < this.stageDTO.photos.size) {
+                val photoDTO = this.stageDTO.photos[photoIdx]
 
-            if (photoIdx < stageDTO.photos.size) {
                 val textView: TextView = photoView.findViewById(R.id.photoName)
-                textView.text = stageDTO.photos[photoIdx].caption
+                textView.text = photoDTO.caption
 
-                val photoDTO = stageDTO.photos[photoIdx]
                 val thumbFile = File(context.photoDirectory, "thumb_${photoDTO.imageFileName}")
 
                 if (thumbFile.exists()) {
-                    val thumbUri = FsUtils.getFileUri(context, thumbFile)
-                    imageView.setImageURI(thumbUri)
-                    imageView.tag = thumbUri
+                    imageView.setImageURI(FsUtils.getFileUri(context, thumbFile))
                 } else {
                     // Если миниатюры нет, установите значок камеры
                     imageView.setImageResource(R.drawable.ic_camera)
@@ -125,20 +115,18 @@ class StageViewHolder(
     }
 
     // Функция отображения BottomSheetDialog для фото
-    private fun showPhotoOptionsBottomSheet(stageIdx: Int, photoIdx: Int) {
+    private fun showPhotoOptionsBottomSheet(photoIdx: Int) {
         val bottomSheetDialog = BottomSheetDialog(context)
         val bottomSheetView = LayoutInflater.from(context)
             .inflate(R.layout.bottom_sheet_photo_options, null, false)
 
         // Находим и устанавливаем фото
         val imageView: ImageView = bottomSheetView.findViewById(R.id.fullImageView)
-        val photoDTO = poverkaDTO.stages[stageIdx].photos[photoIdx]
+        val photoDTO = stageDTO.photos[photoIdx]
         val photoFile = File(context.photoDirectory, photoDTO.imageFileName)
 
-        if (photoFile.exists()) {
-            val photoUri = Uri.fromFile(photoFile)
-            imageView.setImageURI(photoUri)
-        }
+        val photoUri = Uri.fromFile(photoFile)
+        imageView.setImageURI(photoUri)
 
         // Обработчик для кнопки редактирования фото
         bottomSheetView.findViewById<View>(R.id.editButton).setOnClickListener {
@@ -149,7 +137,7 @@ class StageViewHolder(
         // Обработчик для кнопки повторной съёмки фото
         bottomSheetView.findViewById<View>(R.id.retakeButton).setOnClickListener {
             // Переснимаем фото
-            takePhoto(this, photoIdx)
+            takePhoto(photoIdx)
             bottomSheetDialog.dismiss()
         }
 
@@ -158,12 +146,12 @@ class StageViewHolder(
     }
 
     // Функция для съемки фото
-    private fun takePhoto(stageViewHolder: StageViewHolder, photoIdx: Int) {
+    private fun takePhoto(photoIdx: Int) {
         val photoFile =
-            File(context.photoDirectory, stageViewHolder.stageDTO.photos[photoIdx].imageFileName)
+            File(context.photoDirectory, stageDTO.photos[photoIdx].imageFileName)
         // Создаем дескриптор файла для фото
         val photoUri = FileProvider.getUriForFile(context, context.packageName, photoFile)
         // Запуск камеры для фотографирования
-        context.takePictureLauncher.launch(CameraCall(photoUri, stageViewHolder.stageIdx))
+        context.takePictureLauncher.launch(CameraCall(photoUri, stageIdx))
     }
 }

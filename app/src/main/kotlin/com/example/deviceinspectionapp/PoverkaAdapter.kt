@@ -28,17 +28,13 @@ class PoverkaAdapter(
         val stageView = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_stage, parent, false) as LinearLayout
         return StageViewHolder(
-            stageView,
             context,
-            poverkaDTO,
-            takePictureLauncher = { cameraCall -> context.takePictureLauncher.launch(cameraCall) },
-            photoDirectory = context.photoDirectory
+            stageView,
         )
     }
 
-    override fun onBindViewHolder(holder: StageViewHolder, position: Int) {
-        // Привязываем данные для текущего этапа
-        holder.bind(position, poverkaDTO.stages[position])
+    override fun onBindViewHolder(holder: StageViewHolder, stageIdx: Int) {
+        holder.bind(stageIdx, poverkaDTO.stages[stageIdx])
     }
 
     override fun getItemCount(): Int {
