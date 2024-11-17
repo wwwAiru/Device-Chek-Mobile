@@ -2,11 +2,14 @@ package com.example.deviceinspectionapp
 
 import PoverkaAdapter
 import PoverkaDTO
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -21,8 +24,10 @@ class DeviceCheckActivity : AppCompatActivity() {
 
     lateinit var photoDirectory: File
     lateinit var takePictureLauncher: ActivityResultLauncher<CameraCall>
+    lateinit var editPhotoLauncher: ActivityResultLauncher<Intent>
 
-    @RequiresApi(Build.VERSION_CODES.N)
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_device_check)
@@ -43,8 +48,26 @@ class DeviceCheckActivity : AppCompatActivity() {
 
         // Инициализируем launcher для камеры
         takePictureLauncher = setupTakePictureLauncher()
+        // Инициализация launcher для редактирования фото
+        editPhotoLauncher = setupEditPhotoLauncher()
     }
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private fun setupEditPhotoLauncher(): ActivityResultLauncher<Intent> {
+        return registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                val editedPhotoUri = result.data?.getParcelableExtra("photoUri", Uri::class.java)
+                val photoIdx = result.data?.getIntExtra("photoIdx", -1)
+                if (editedPhotoUri != null) {
+                    if (photoIdx != null) {
+                        poverkaAdapter.processPhotoEditEvent(photoIdx, editedPhotoUri)
+                    }
+                }
+            } else {
+                Log.d("EditPhoto", "Editing was canceled or failed.")
+            }
+        }
+    }
     @RequiresApi(Build.VERSION_CODES.N)
     private fun setupTakePictureLauncher(): ActivityResultLauncher<CameraCall> {
         return registerForActivityResult(CameraCallResultPassingThrough()) { result ->

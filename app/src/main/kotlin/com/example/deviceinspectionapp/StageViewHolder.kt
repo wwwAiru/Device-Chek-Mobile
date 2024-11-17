@@ -2,6 +2,7 @@ package com.example.deviceinspectionapp
 
 import StageDTO
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.util.DisplayMetrics
@@ -156,7 +157,11 @@ class StageViewHolder(
 
         // Обработчик для кнопки редактирования фото
         bottomSheetView.findViewById<View>(R.id.editButton).setOnClickListener {
-            // Код для редактирования фото
+            val editIntent = Intent(context, PhotoEditActivity::class.java).apply {
+                putExtra("photoUri", photoUri)
+                putExtra("photoIdx", photoUri)
+            }
+            context.editPhotoLauncher.launch(editIntent)
             bottomSheetDialog.dismiss()
         }
 
@@ -170,6 +175,7 @@ class StageViewHolder(
         bottomSheetDialog.setContentView(bottomSheetView)
         bottomSheetDialog.show()
     }
+
 
     // Функция для съемки фото
     private fun takePhoto(photoIdx: Int) {

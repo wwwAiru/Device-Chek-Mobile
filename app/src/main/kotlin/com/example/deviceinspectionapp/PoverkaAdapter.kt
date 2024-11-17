@@ -1,4 +1,5 @@
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.view.LayoutInflater
@@ -40,6 +41,30 @@ class PoverkaAdapter(
     override fun getItemCount(): Int {
         return poverkaDTO.stages.size
     }
+
+    @RequiresApi(Build.VERSION_CODES.N)
+    fun processPhotoEditEvent(stageIdx: Int, editedPhotoUri: Uri) {
+        // Путь к редактируемому фото
+        val editedPhotoFile = File(editedPhotoUri.path!!)
+
+        if (editedPhotoFile.exists()) {
+            // Создание миниатюры для редактированного фото
+            val thumbnailBitmap = BitmapUtils.createThumbnailFromFile(editedPhotoFile, context.contentResolver)
+
+            // Формируем имя для файла миниатюры
+            val thumbFileName = "thumb_${editedPhotoFile.name}"
+            val thumbFile = File(context.photoDirectory, thumbFileName)
+
+            // Сохраняем миниатюру
+            Log.d("creating thumb", thumbFileName)
+            FileOutputStream(thumbFile).use { out ->
+                thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+            }
+            notifyItemChanged(stageIdx)
+        }
+    }
+
+
 
     @RequiresApi(Build.VERSION_CODES.N)
     fun processPhotoTakenEvent(call: CameraCall) {

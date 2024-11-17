@@ -46,6 +46,8 @@
         <!-- DeviceCheckActivity, основной активити для процесса проверки -->
         <activity android:name=".DeviceCheckActivity" />
 
+        <activity android:name=".PhotoEditActivity" />
+
 
     </application>
 
