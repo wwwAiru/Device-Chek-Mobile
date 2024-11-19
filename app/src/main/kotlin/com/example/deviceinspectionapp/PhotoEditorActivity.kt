@@ -1,117 +1,108 @@
 package com.example.deviceinspectionapp
 
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Matrix
-import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
-import android.view.MotionEvent
-import android.view.View
-import android.widget.Button
-import android.widget.Toast
+import android.util.Log
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.addCallback
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
-import com.github.chrisbanes.photoview.PhotoView
+import com.yalantis.ucrop.UCrop
 import java.io.File
-import java.io.FileOutputStream
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
 
+/**
+ *  https://github.com/Yalantis/uCrop
+ * */
 class PhotoEditActivity : AppCompatActivity() {
-
     private lateinit var photoUri: Uri
-    private lateinit var originalBitmap: Bitmap
-    private lateinit var photoView: PhotoView
-    private var rotationAngle = 0f
+    private var stageIdx: Int = -1
+    private var photoIdx: Int = -1
 
-    private var startAngle = 0f
-    private var isRotating = false
+    private lateinit var uCropLauncher: ActivityResultLauncher<Intent>
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_photo_edit)
 
-        // Получаем URI изображения из Intent
-        photoUri = intent.getParcelableExtra("photoUri") ?: throw IllegalArgumentException("Photo URI is required")
+        // Инициализация uCropLauncher
+        setupUCropLauncher()
 
-        // Находим PhotoView
-        photoView = findViewById(R.id.ivEdit)
+        // Получаем данные из Intent
+        intent.getParcelableExtra("photoUri", Uri::class.java)?.let {
+            photoUri = it
+        } ?: run {
+            Log.e("PhotoEditActivity", "Не удалось получить URI изображения")
+            finish()
+            return
+        }
 
-        // Загружаем оригинальное изображение
-        originalBitmap = BitmapFactory.decodeStream(contentResolver.openInputStream(photoUri))
+        stageIdx = intent.getIntExtra("stageIdx", -1)
+        photoIdx = intent.getIntExtra("photoIdx", -1)
 
-        // Отображаем изображение в PhotoView
-        photoView.setImageBitmap(originalBitmap)
+        if (stageIdx == -1 || photoIdx == -1) {
+            Log.e("PhotoEditActivity", "Недостаточно данных для редактирования")
+            finish()
+            return
+        }
 
-        // Настроим кнопки
-        findViewById<Button>(R.id.btnSave).setOnClickListener { saveEditedPhoto() }
-        findViewById<Button>(R.id.btnCancel).setOnClickListener { finish() }
+        // Настройка uCrop
+        startUCrop(photoUri)
+    }
 
-        // Устанавливаем слушатель касания
-        photoView.setOnTouchListener(object : View.OnTouchListener {
-            override fun onTouch(v: View?, event: MotionEvent?): Boolean {
-                if (event == null) return false
 
-                when (event.action) {
-                    MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_MOVE -> {
-                        if (event.pointerCount == 2) {
-                            val angle = calculateRotationAngle(event)
-                            if (isRotating) {
-                                val deltaAngle = angle - startAngle
-                                rotationAngle += deltaAngle
-                                val rotatedBitmap = rotateBitmap(originalBitmap, rotationAngle)
-                                photoView.setImageBitmap(rotatedBitmap)
-                            }
-                            startAngle = angle
-                            isRotating = true
-                        }
-                    }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
-                        isRotating = false
-                    }
+    private fun setupUCropLauncher() {
+        uCropLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                val data = result.data
+                val resultUri = data?.let { UCrop.getOutput(it) }
+                if (resultUri != null) {
+                    handleCropResult(resultUri)
+                } else {
+                    Log.e("PhotoEditActivity", "URI результата пустой")
+                    setResult(RESULT_CANCELED)
+                    finish()
                 }
-                return true
+            } else if (result.resultCode == UCrop.RESULT_ERROR) {
+                val cropError = UCrop.getError(result.data!!)
+                Log.e("PhotoEditActivity", "Ошибка редактирования: $cropError")
+                setResult(RESULT_CANCELED)
+                finish()
             }
-        })
+        }
     }
 
-    // Вычисляем угол между двумя пальцами
-    private fun calculateRotationAngle(event: MotionEvent): Float {
-        val dx = event.getX(0) - event.getX(1)
-        val dy = event.getY(0) - event.getY(1)
-        return Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat()
+    private fun startUCrop(uri: Uri) {
+        val destinationFile = File(uri.path!!) // Используем тот же файл для сохранения
+        val destinationUri = Uri.fromFile(destinationFile)
+
+        val uCropIntent = UCrop.of(uri, destinationUri)
+            .withAspectRatio(1f, 1f)
+            .withMaxResultSize(1000, 1000) // Задаем максимальные размеры
+            .getIntent(this)
+
+        uCropLauncher.launch(uCropIntent)
     }
 
-    // Поворачиваем изображение на заданный угол
-    private fun rotateBitmap(bitmap: Bitmap, angle: Float): Bitmap {
-        val matrix = Matrix()
-        matrix.postRotate(angle)
-        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-    }
+    private fun handleCropResult(resultUri: Uri) {
+        val resultFile = File(resultUri.path!!)
 
-    // Сохраняем редактированное изображение
-    private fun saveEditedPhoto() {
-        try {
-            // Извлекаем текущее изображение из PhotoView
-            val bitmapToSave = (photoView.drawable as? BitmapDrawable)?.bitmap ?: originalBitmap
-
-            // Перезаписываем файл с редактированным изображением
-            val outputFile = File(photoUri.path)
-            FileOutputStream(outputFile).use { out ->
-                bitmapToSave.compress(Bitmap.CompressFormat.JPEG, 100, out)
-            }
-
-            // Возвращаем результат
+        if (resultFile.exists()) {
+            // Возвращаем результат в вызывающую активность
             val resultIntent = Intent().apply {
-                putExtra("photoUri", Uri.fromFile(outputFile))
+                putExtra("photoUri", resultUri)
+                putExtra("stageIdx", stageIdx)
+                putExtra("photoIdx", photoIdx)
             }
             setResult(RESULT_OK, resultIntent)
+        } else {
+            Log.e("PhotoEditActivity", "Файл результата не существует: ${resultFile.absolutePath}")
+            setResult(RESULT_CANCELED)
             finish()
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(this, "Ошибка при сохранении изображения", Toast.LENGTH_SHORT).show()
         }
+        finish()
     }
 }
