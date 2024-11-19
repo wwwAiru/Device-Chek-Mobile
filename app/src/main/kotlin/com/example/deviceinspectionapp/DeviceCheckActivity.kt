@@ -48,6 +48,7 @@ class DeviceCheckActivity : AppCompatActivity() {
 
         // Инициализируем launcher для камеры
         takePictureLauncher = setupTakePictureLauncher()
+
         // Инициализация launcher для редактирования фото
         editPhotoLauncher = setupEditPhotoLauncher()
     }
@@ -58,20 +59,20 @@ class DeviceCheckActivity : AppCompatActivity() {
             if (result.resultCode == RESULT_OK) {
                 val editedPhotoUri = result.data?.getParcelableExtra("photoUri", Uri::class.java)
                 val photoIdx = result.data?.getIntExtra("photoIdx", -1)
-                if (editedPhotoUri != null) {
-                    if (photoIdx != null) {
-                        poverkaAdapter.processPhotoEditEvent(photoIdx, editedPhotoUri)
-                    }
+                val stageIdx = result.data?.getIntExtra("stageIdx", -1)
+                if (editedPhotoUri != null && photoIdx != null && stageIdx != null) {
+                    poverkaAdapter.processPhotoEditEvent(stageIdx, photoIdx, editedPhotoUri)
                 }
             } else {
-                Log.d("EditPhoto", "Editing was canceled or failed.")
+                Log.d("EditPhoto", "Редактирование отменено или выполнено с ошибками.")
             }
         }
     }
+
     @RequiresApi(Build.VERSION_CODES.N)
     private fun setupTakePictureLauncher(): ActivityResultLauncher<CameraCall> {
         return registerForActivityResult(CameraCallResultPassingThrough()) { result ->
-            Log.d("CameraResult", "Result: ${result}")
+            Log.d("CameraResult", "Result: $result")
             if (result != null) {
                 // Обрабатываем результат съемки фотографии
                 poverkaAdapter.processPhotoTakenEvent(result)
