@@ -43,27 +43,24 @@ class PoverkaAdapter(
     }
 
     @RequiresApi(Build.VERSION_CODES.N)
-    fun processPhotoEditEvent(stageIdx: Int, editedPhotoUri: Uri) {
-        // Путь к редактируемому фото
-        val editedPhotoFile = File(editedPhotoUri.path!!)
+    fun processPhotoEditEvent(stageIdx: Int, photoIdx: Int, editedPhotoUri: Uri) {
+        val editedFileName = editedPhotoUri.path!!.substringAfterLast('/')
+        val editedPhotoFile = File(context.photoDirectory, editedFileName)
 
         if (editedPhotoFile.exists()) {
-            // Создание миниатюры для редактированного фото
+            // Создаем миниатюру из редактированного фото
             val thumbnailBitmap = BitmapUtils.createThumbnailFromFile(editedPhotoFile, context.contentResolver)
 
-            // Формируем имя для файла миниатюры
-            val thumbFileName = "thumb_${editedPhotoFile.name}"
-            val thumbFile = File(context.photoDirectory, thumbFileName)
-
-            // Сохраняем миниатюру
-            Log.d("creating thumb", thumbFileName)
+            // Формируем имя миниатюры
+            val thumbFile = File(context.photoDirectory, "thumb_$editedFileName")
+            Log.d("creating thumb", "thumb_$editedFileName")
             FileOutputStream(thumbFile).use { out ->
-                thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+                thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
             }
-            notifyItemChanged(stageIdx)
+            // Уведомляем адаптер об изменениях конкретного элемента
+            notifyItemChanged(stageIdx, photoIdx)
         }
     }
-
 
 
     @RequiresApi(Build.VERSION_CODES.N)
@@ -78,7 +75,7 @@ class PoverkaAdapter(
             FileOutputStream(thumbFile).use { out ->
                 thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
             }
-            notifyItemChanged(call.stageIdx)
+            notifyItemChanged(call.stageIdx, call.photoIdx)
         }
     }
 }
