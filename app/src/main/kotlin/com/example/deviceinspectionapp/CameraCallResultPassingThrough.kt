@@ -22,4 +22,4 @@ class CameraCallResultPassingThrough : ActivityResultContract<CameraCall, Camera
     }
 }
 
-data class CameraCall(val fileUri: Uri, val stageIdx: Int)
+data class CameraCall(val fileUri: Uri, val stageIdx: Int, val photoIdx: Int)
