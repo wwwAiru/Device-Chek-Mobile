@@ -159,7 +159,8 @@ class StageViewHolder(
         bottomSheetView.findViewById<View>(R.id.editButton).setOnClickListener {
             val editIntent = Intent(context, PhotoEditActivity::class.java).apply {
                 putExtra("photoUri", photoUri)
-                putExtra("photoIdx", photoUri)
+                putExtra("stageIdx", stageIdx)
+                putExtra("photoIdx", photoIdx)
             }
             context.editPhotoLauncher.launch(editIntent)
             bottomSheetDialog.dismiss()
@@ -184,6 +185,6 @@ class StageViewHolder(
         // Создаем дескриптор файла для фото
         val photoUri = FileProvider.getUriForFile(context, context.packageName, photoFile)
         // Запуск камеры для фотографирования
-        context.takePictureLauncher.launch(CameraCall(photoUri, stageIdx))
+        context.takePictureLauncher.launch(CameraCall(photoUri, stageIdx, photoIdx))
     }
 }
