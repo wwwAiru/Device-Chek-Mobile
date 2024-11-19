@@ -70,7 +70,7 @@ dependencies {
     // Для работы с изображениями
     implementation(libs.flexbox)
     implementation("androidx.exifinterface:exifinterface:1.3.6")
-    implementation("com.github.chrisbanes:PhotoView:2.3.0")
+    implementation("com.github.yalantis:ucrop:2.2.8")
 
 
     // Тестовые зависимости
