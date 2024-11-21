@@ -15,6 +15,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.example.deviceinspectionapp.utils.TestData
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -38,7 +39,7 @@ class MainActivity : AppCompatActivity() {
         setupPhotoDirectory()
 
         // Загрузка данных поверки из JSON или генерация заглушек
-        poverkaDTO = loadOrCreateInspectionData()
+        poverkaDTO = TestData.createTestInspectionData()
 
         // Ищем приложение для камеры
         cameraAppPackageName = findCameraApp()
@@ -73,15 +74,6 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Не удалось создать директорию для фото", Toast.LENGTH_SHORT).show()
         } else {
             Log.d("MainActivity", "Директория для фото: ${photoDirectory.absolutePath}")
-        }
-    }
-
-    private fun loadOrCreateInspectionData(): PoverkaDTO {
-        val jsonFile = File(filesDir, "inspection_data.json")
-        return if (jsonFile.exists()) {
-            Json.decodeFromString(jsonFile.readText())
-        } else {
-            TestData.createTestInspectionData()
         }
     }
 
