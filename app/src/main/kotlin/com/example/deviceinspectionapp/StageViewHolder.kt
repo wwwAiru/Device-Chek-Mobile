@@ -2,10 +2,10 @@ package com.example.deviceinspectionapp
 
 import StageDTO
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.util.DisplayMetrics
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
@@ -157,12 +157,7 @@ class StageViewHolder(
 
         // Обработчик для кнопки редактирования фото
         bottomSheetView.findViewById<View>(R.id.editButton).setOnClickListener {
-            val editIntent = Intent(context, PhotoEditActivity::class.java).apply {
-                putExtra("photoUri", photoUri)
-                putExtra("stageIdx", stageIdx)
-                putExtra("photoIdx", photoIdx)
-            }
-            context.editPhotoLauncher.launch(editIntent)
+            startPhotoEditing(photoUri, stageIdx, photoIdx)
             bottomSheetDialog.dismiss()
         }
 
@@ -187,4 +182,35 @@ class StageViewHolder(
         // Запуск камеры для фотографирования
         context.takePictureLauncher.launch(CameraCall(photoUri, stageIdx, photoIdx))
     }
+
+    /**
+     * Запуск uCrop для обрезки изображения.
+     */
+    private fun startPhotoEditing(sourceUri: Uri, stageIdx: Int, photoIdx: Int) {
+        // Получаем размеры изображения
+        val originalSize = BitmapUtils.getImageDimensions(sourceUri, context)
+        if (originalSize == null) {
+            Log.e("UCrop", "Невозможно получить размеры изображения: $sourceUri")
+            return
+        }
+
+        // Формируем URI для сохранения результата с оригинальным именем файла
+        val destFile = File(context.photoDirectory, sourceUri.lastPathSegment!!)
+        val destUri = Uri.fromFile(destFile)
+
+        // Создаем объект PhotoEditorCall с нужными данными
+        val photoEditorCall = PhotoEditorCall(
+            fileUri = sourceUri,
+            destinationUri = destUri,
+            stageIdx = stageIdx,
+            photoIdx = photoIdx
+        )
+
+        // Запускаем UCrop с использованием ActivityResultLauncher
+        context.editPhotoLauncher.launch(photoEditorCall)
+    }
+
+
+
+
 }
