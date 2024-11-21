@@ -100,46 +100,6 @@ class StageViewHolder(
         }
     }
 
-    private fun calculateIconSize(context: Context): Int {
-
-        // Получаем размеры экрана
-        val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val windowMetrics = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            windowManager.currentWindowMetrics
-        } else {
-            val display = windowManager.defaultDisplay
-            @Suppress("DEPRECATION")
-            display.getMetrics(DisplayMetrics())
-            return DisplayMetrics().widthPixels
-        }
-
-        val screenWidth = windowMetrics.bounds.width()
-
-        // Получаем количество иконок в строке из AppPreferences
-        val iconsInRow = AppPreferences.getIconsInRow(context)
-
-        // Получаем размеры отступов контейнера и иконок из ресурсов
-        val containerPadding = context.resources.getDimensionPixelSize(R.dimen.activity_device_check_padding) * 2 // для обеих сторон (левая и правая)
-        val photoLinearLayoutPadding = context.resources.getDimensionPixelSize(R.dimen.item_photo_linearlayout_padding) * 2
-        val stageScrollViewPadding = context.resources.getDimensionPixelSize(R.dimen.item_stage_scrollview_padding) * 2
-        val stageFlexboxPadding = context.resources.getDimensionPixelSize(R.dimen.item_stage_flexbox_padding) * 2
-        val photoIconPadding = context.resources.getDimensionPixelSize(R.dimen.item_photo_icon_padding) * 2
-        val photoIconMargin = context.resources.getDimensionPixelSize(R.dimen.item_photo_cardview_margin) * 2
-
-        // Рассчитываем доступную ширину для иконок с учетом паддингов и маржинов
-        val availableWidth = screenWidth -
-                            containerPadding -
-                            photoLinearLayoutPadding -
-                            stageScrollViewPadding -
-                            stageFlexboxPadding -
-                            (photoIconPadding * iconsInRow) -
-                            (photoIconMargin * iconsInRow)
-
-        // Рассчитываем размер каждой иконки
-        return (availableWidth / iconsInRow)
-    }
-
-
 
     // Функция отображения BottomSheetDialog для фото
     private fun showPhotoOptionsBottomSheet(photoIdx: Int) {
@@ -211,6 +171,58 @@ class StageViewHolder(
     }
 
 
+    companion object {
+        // Переменная для кэширования размера иконок
+        private var cachedIconSize: Int? = null
 
+        // Метод для вычисления или получения кэшированного значения размера иконок
+        fun calculateIconSize(context: Context): Int {
+            // Если размер уже вычислен, возвращаем его
+            cachedIconSize?.let {
+                return it
+            }
+
+            // Логика вычисления размера иконок
+            val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            val windowMetrics = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                windowManager.currentWindowMetrics
+            } else {
+                val display = windowManager.defaultDisplay
+                @Suppress("DEPRECATION")
+                display.getMetrics(DisplayMetrics())
+                return DisplayMetrics().widthPixels
+            }
+
+            val screenWidth = windowMetrics.bounds.width()
+
+            // Получаем количество иконок в строке из AppPreferences
+            val iconsInRow = AppPreferences.getIconsInRow(context)
+
+            // Получаем размеры отступов контейнера и иконок из ресурсов
+            val containerPadding = context.resources.getDimensionPixelSize(R.dimen.activity_device_check_padding) * 2 // для обеих сторон (левая и правая)
+            val photoLinearLayoutPadding = context.resources.getDimensionPixelSize(R.dimen.item_photo_linearlayout_padding) * 2
+            val stageScrollViewPadding = context.resources.getDimensionPixelSize(R.dimen.item_stage_scrollview_padding) * 2
+            val stageFlexboxPadding = context.resources.getDimensionPixelSize(R.dimen.item_stage_flexbox_padding) * 2
+            val photoIconPadding = context.resources.getDimensionPixelSize(R.dimen.item_photo_icon_padding) * 2
+            val photoIconMargin = context.resources.getDimensionPixelSize(R.dimen.item_photo_cardview_margin) * 2
+
+            // Рассчитываем доступную ширину для иконок с учетом паддингов и маржинов
+            val availableWidth = screenWidth -
+                    containerPadding -
+                    photoLinearLayoutPadding -
+                    stageScrollViewPadding -
+                    stageFlexboxPadding -
+                    (photoIconPadding * iconsInRow) -
+                    (photoIconMargin * iconsInRow)
+
+            // Рассчитываем размер каждой иконки
+            val iconSize = (availableWidth / iconsInRow)
+
+            // Кэшируем рассчитанный размер
+            cachedIconSize = iconSize
+
+            return iconSize
+        }
+    }
 
 }
