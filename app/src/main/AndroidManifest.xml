@@ -45,12 +45,10 @@
         <!-- Активити библиотеки ucrop -->
         <activity
             android:name="com.yalantis.ucrop.UCropActivity"
-            android:screenOrientation="portrait"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
+            android:screenOrientation="portrait" />
         <!-- DeviceCheckActivity, основной активити для процесса проверки -->
         <activity android:name=".DeviceCheckActivity" />
 
-        <activity android:name=".PhotoEditActivity" />
 
 
     </application>
