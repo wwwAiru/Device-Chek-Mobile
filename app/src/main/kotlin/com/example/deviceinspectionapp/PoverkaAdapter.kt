@@ -34,9 +34,23 @@ class PoverkaAdapter(
         )
     }
 
-    override fun onBindViewHolder(holder: StageViewHolder, stageIdx: Int) {
-        holder.bind(stageIdx, poverkaDTO.stages[stageIdx])
+    override fun onBindViewHolder(holder: StageViewHolder, position: Int) {
+        holder.bind(position, poverkaDTO.stages[position])
     }
+
+    override fun onBindViewHolder(holder: StageViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isNotEmpty()) {
+            val payload = payloads[0]
+            if (payload is Pair<*, *> && payload.second == "update_photo") {
+                val photoIdx = payload.first as Int
+                holder.updateThumbnail(photoIdx)
+            }
+        } else {
+            // Полное обновление, если `payload` пуст
+            holder.bind(position, poverkaDTO.stages[position])
+        }
+    }
+
 
     override fun getItemCount(): Int {
         return poverkaDTO.stages.size
@@ -58,7 +72,7 @@ class PoverkaAdapter(
                 thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
             }
             // Уведомляем адаптер об изменениях конкретного элемента
-            notifyItemChanged(stageIdx, photoIdx)
+            notifyItemChanged(stageIdx, Pair(photoIdx, "update_photo"))
         }
     }
 
@@ -75,7 +89,7 @@ class PoverkaAdapter(
             FileOutputStream(thumbFile).use { out ->
                 thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
             }
-            notifyItemChanged(call.stageIdx, call.photoIdx)
+            notifyItemChanged(call.stageIdx, Pair(call.photoIdx, "update_photo"))
         }
     }
 }

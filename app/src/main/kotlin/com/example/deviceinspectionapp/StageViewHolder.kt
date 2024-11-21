@@ -100,6 +100,41 @@ class StageViewHolder(
         }
     }
 
+    fun updateThumbnail(photoIdx: Int) {
+        if (photoIdx < 0 || photoIdx >= photoViews.size) {
+            Log.e("StageViewHolder", "Invalid photo index: $photoIdx")
+            return
+        }
+
+        val photoView = photoViews[photoIdx]
+        val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
+
+        // Проверяем, существует ли фото в текущей стадии
+        if (photoIdx < stageDTO.photos.size) {
+            val photoDTO = stageDTO.photos[photoIdx]
+            val thumbFile = File(context.photoDirectory, "thumb_${photoDTO.imageFileName}")
+
+            // Сбрасываем текущее изображение перед установкой нового
+            imageView.setImageDrawable(null)
+
+            if (thumbFile.exists()) {
+                // Устанавливаем миниатюру из файла
+                imageView.setImageURI(FsUtils.getFileUri(context, thumbFile))
+            } else {
+                // Устанавливаем значок камеры, если миниатюра отсутствует
+                imageView.setImageResource(R.drawable.ic_camera)
+            }
+
+            // Убедитесь, что видимый статус у элемента правильный
+            photoView.visibility = View.VISIBLE
+        } else {
+            // Скрываем вид, если индекс выходит за пределы
+            photoView.visibility = View.GONE
+        }
+    }
+
+
+
 
     // Функция отображения BottomSheetDialog для фото
     private fun showPhotoOptionsBottomSheet(photoIdx: Int) {
