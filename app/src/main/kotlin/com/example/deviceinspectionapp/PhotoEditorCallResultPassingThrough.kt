@@ -12,11 +12,24 @@ class PhotoEditorCallResultPassingThrough : ActivityResultContract<PhotoEditorCa
     private lateinit var photoEditorCall: PhotoEditorCall
 
     override fun createIntent(context: Context, input: PhotoEditorCall): Intent {
+        if (input.fileUri.toString().isBlank() || input.destinationUri.toString().isBlank()) {
+            throw IllegalArgumentException(
+                "Необходимо передать корректные URI для обрезки изображения"
+            )
+        }
+
+        if (input.stageIdx < 0 || input.photoIdx < 0) {
+            throw IllegalArgumentException(
+                "Индексы stageIdx и photoIdx должны быть положительными"
+            )
+        }
+
         photoEditorCall = input
         // Формируем Intent для вызова UCrop
         return UCrop.of(input.fileUri, input.destinationUri)
             .withOptions(UCrop.Options().apply {
                 setCompressionQuality(100)
+                setFreeStyleCropEnabled(true)
             })
             .getIntent(context)
             .apply {
@@ -25,34 +38,33 @@ class PhotoEditorCallResultPassingThrough : ActivityResultContract<PhotoEditorCa
             }
     }
 
+
     override fun parseResult(resultCode: Int, intent: Intent?): PhotoEditorCall? {
-        // Проверяем, что результат положительный
-        if (resultCode == Activity.RESULT_OK && intent != null) {
-            // Извлекаем результат обрезки
-            val outputUri = UCrop.getOutput(intent)
-            if (outputUri != null) {
-                // Возвращаем успешно обрезанное изображение
-                return photoEditorCall.copy(fileUri = outputUri)
-            } else {
-                // Логируем ошибку, если URI обрезанного изображения не найден
-                Log.e("PhotoEditorResult", "Ошибка: не удалось получить результат обрезки (outputUri пустое).")
+        return when {
+            resultCode == Activity.RESULT_OK && intent != null -> {
+                val outputUri = UCrop.getOutput(intent)
+                if (outputUri != null) {
+                    photoEditorCall.copy(fileUri = outputUri)
+                } else {
+                    Log.e("UCrop", "Обрезка завершилась без результата (outputUri == null)")
+                    null
+                }
             }
-        } else if (resultCode == UCrop.RESULT_ERROR && intent != null) {
-            // Обработка ошибок, если произошла ошибка обрезки
-            val cropError = UCrop.getError(intent)
-            if (cropError != null) {
-                Log.e("PhotoEditorResult", "Ошибка обрезки:", cropError)
-                // Логируем ошибку обрезки для дальнейшего анализа
-                cropError.printStackTrace()
-            } else {
-                Log.e("PhotoEditorResult", "Неизвестная ошибка обрезки.")
+            resultCode == UCrop.RESULT_ERROR && intent != null -> {
+                val cropError = UCrop.getError(intent)
+                Log.e("UCrop", "Ошибка обрезки: ${cropError?.localizedMessage}")
+                throw IllegalStateException("Ошибка редактирования: ${cropError?.localizedMessage}").apply {
+                    cropError?.let { initCause(it) }
+                }
             }
-        } else {
-            // Логируем ошибку, если результат не OK
-            Log.e("PhotoEditorResult", "Ошибка при обработке результата обрезки (resultCode = $resultCode).")
+            else -> {
+                Log.e("UCrop", "Операция обрезки была отменена или завершилась с некорректным статусом (resultCode = $resultCode)")
+                null
+            }
         }
-        return null
     }
+
+
 }
 
 data class PhotoEditorCall(
