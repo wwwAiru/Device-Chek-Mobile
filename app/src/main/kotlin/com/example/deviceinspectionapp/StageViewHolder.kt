@@ -101,36 +101,33 @@ class StageViewHolder(
     }
 
     fun updateThumbnail(photoIdx: Int) {
-        if (photoIdx < 0 || photoIdx >= photoViews.size) {
-            Log.e("StageViewHolder", "Invalid photo index: $photoIdx")
-            return
+        //require выбрасывает IllegalArgumentException, если условие не выполнено.
+        require(photoIdx in photoViews.indices) {
+            "Неверный индекс фото: $photoIdx. Ожидается диапазон: 0..${photoViews.size - 1}"
         }
 
         val photoView = photoViews[photoIdx]
         val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
 
-        // Проверяем, существует ли фото в текущей стадии
-        if (photoIdx < stageDTO.photos.size) {
-            val photoDTO = stageDTO.photos[photoIdx]
-            val thumbFile = File(context.photoDirectory, "thumb_${photoDTO.imageFileName}")
-
-            // Сбрасываем текущее изображение перед установкой нового
-            imageView.setImageDrawable(null)
-
-            if (thumbFile.exists()) {
-                // Устанавливаем миниатюру из файла
-                imageView.setImageURI(FsUtils.getFileUri(context, thumbFile))
-            } else {
-                // Устанавливаем значок камеры, если миниатюра отсутствует
-                imageView.setImageResource(R.drawable.ic_camera)
-            }
-
-            // Убедитесь, что видимый статус у элемента правильный
-            photoView.visibility = View.VISIBLE
-        } else {
-            // Скрываем вид, если индекс выходит за пределы
-            photoView.visibility = View.GONE
+        require(photoIdx < stageDTO.photos.size) {
+            "Неверный индекс фото: $photoIdx. В stageDTO.photos нет фото с таким индексом."
         }
+
+        val photoDTO = stageDTO.photos[photoIdx]
+        val thumbFile = File(context.photoDirectory, "thumb_${photoDTO.imageFileName}")
+
+        // Сбрасываем текущее изображение перед установкой нового
+        imageView.setImageDrawable(null)
+
+        if (thumbFile.exists()) {
+            // Устанавливаем миниатюру из файла
+            imageView.setImageURI(FsUtils.getFileUri(context, thumbFile))
+        } else {
+            // Устанавливаем значок камеры, если миниатюра отсутствует
+            imageView.setImageResource(R.drawable.ic_camera)
+        }
+
+        photoView.visibility = View.VISIBLE
     }
 
 
