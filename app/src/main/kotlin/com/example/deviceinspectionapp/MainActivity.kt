@@ -43,7 +43,11 @@ class MainActivity : AppCompatActivity() {
 
         // Ищем приложение для камеры
         cameraAppPackageName = findCameraApp()
-        //TODO: if null then сообщение + выход
+        if (cameraAppPackageName == null) {
+            Toast.makeText(this, "Приложение камеры не найдено. Завершаем работу.", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
 
         // Кнопка для начала новой поверки
         val btnStartInspection: Button = findViewById(R.id.btnStartInspection)
@@ -60,18 +64,19 @@ class MainActivity : AppCompatActivity() {
         permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             val allPermissionsGranted = permissions.all { it.value }
             if (allPermissionsGranted) {
-                Toast.makeText(this, "Все разрешения предоставлены", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Разрешение предоставлено.", Toast.LENGTH_SHORT).show()
             } else {
-                Toast.makeText(this, "Необходимо предоставить все разрешения", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Разрешение не предоставлено, приложение закрыто.", Toast.LENGTH_LONG).show()
+                finish()
             }
         }
     }
 
     private fun setupPhotoDirectory() {
-        // Путь к внутреннему хранилищу (директория files)
-        photoDirectory = File(filesDir, "images") // Внутренний каталог для хранения фото
+        photoDirectory = File(filesDir, "images")
         if (!photoDirectory.exists() && !photoDirectory.mkdirs()) {
-            Toast.makeText(this, "Не удалось создать директорию для фото", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Не удалось создать директорию для фото, приложение закрыто.", Toast.LENGTH_LONG).show()
+            finish()
         } else {
             Log.d("MainActivity", "Директория для фото: ${photoDirectory.absolutePath}")
         }
@@ -113,13 +118,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startDeviceCheckActivity() {
+        if (cameraAppPackageName.isNullOrBlank()) {
+            Toast.makeText(this, "Ошибка: приложение камеры не найдено.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        if (!photoDirectory.exists()) {
+            Toast.makeText(this, "Ошибка: директория для фото отсутствует.", Toast.LENGTH_LONG).show()
+            return
+        }
+
         val poverkaJson = Json.encodeToString(poverkaDTO)
-        val intent = Intent(this, DeviceCheckActivity::class.java)
-            .apply {
-                putExtra("jsonData", poverkaJson)
-                putExtra("cameraAppPackageName", cameraAppPackageName)
-                putExtra("photoDirectoryPath", photoDirectory.absolutePath)
-            }
+        val intent = Intent(this, DeviceCheckActivity::class.java).apply {
+            putExtra("jsonData", poverkaJson)
+            putExtra("cameraAppPackageName", cameraAppPackageName)
+            putExtra("photoDirectoryPath", photoDirectory.absolutePath)
+        }
         startActivity(intent)
     }
 }
