@@ -40,7 +40,7 @@ class PoverkaAdapter(
 
     override fun onBindViewHolder(holder: StageViewHolder, position: Int, payloads: MutableList<Any>) {
         if (payloads.isNotEmpty()) {
-            val payload = payloads[0]
+            val payload = payloads.last() // Берем последний объект
             if (payload is Pair<*, *> && payload.second == "update_photo") {
                 val photoIdx = payload.first as Int
                 holder.updateThumbnail(photoIdx)
@@ -50,6 +50,7 @@ class PoverkaAdapter(
             holder.bind(position, poverkaDTO.stages[position])
         }
     }
+
 
 
     override fun getItemCount(): Int {
