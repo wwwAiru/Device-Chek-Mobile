@@ -1,3 +1,6 @@
+package com.example.deviceinspectionapp
+
+import PoverkaDTO
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
@@ -7,11 +10,6 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import androidx.annotation.RequiresApi
 import androidx.recyclerview.widget.RecyclerView
-import com.example.deviceinspectionapp.BitmapUtils
-import com.example.deviceinspectionapp.CameraCall
-import com.example.deviceinspectionapp.DeviceCheckActivity
-import com.example.deviceinspectionapp.R
-import com.example.deviceinspectionapp.StageViewHolder
 import java.io.File
 import java.io.FileOutputStream
 
@@ -40,17 +38,13 @@ class PoverkaAdapter(
 
     override fun onBindViewHolder(holder: StageViewHolder, position: Int, payloads: MutableList<Any>) {
         if (payloads.isNotEmpty()) {
-            val payload = payloads.last() // Берем последний объект
-            if (payload is Pair<*, *> && payload.second == "update_photo") {
-                val photoIdx = payload.first as Int
-                holder.updateThumbnail(photoIdx)
-            }
+            val payload = payloads.last() as Pair<*,*>
+            holder.updateThumbnail(payload.first as Int)
         } else {
             // Полное обновление, если `payload` пуст
             holder.bind(position, poverkaDTO.stages[position])
         }
     }
-
 
 
     override fun getItemCount(): Int {
@@ -61,11 +55,8 @@ class PoverkaAdapter(
     fun processPhotoEditEvent(stageIdx: Int, photoIdx: Int, editedPhotoUri: Uri) {
         val editedFileName = editedPhotoUri.path!!.substringAfterLast('/')
         val editedPhotoFile = File(context.photoDirectory, editedFileName)
-
-        if (editedPhotoFile.exists()) {
             // Создаем миниатюру из редактированного фото
             val thumbnailBitmap = BitmapUtils.createThumbnailFromFile(editedPhotoFile, context.contentResolver)
-
             // Формируем имя миниатюры
             val thumbFile = File(context.photoDirectory, "thumb_$editedFileName")
             Log.d("creating thumb", "thumb_$editedFileName")
@@ -74,7 +65,6 @@ class PoverkaAdapter(
             }
             // Уведомляем адаптер об изменениях конкретного элемента
             notifyItemChanged(stageIdx, Pair(photoIdx, "update_photo"))
-        }
     }
 
 
@@ -82,15 +72,12 @@ class PoverkaAdapter(
     fun processPhotoTakenEvent(call: CameraCall) {
         val fileName = call.fileUri.path!!.substringAfterLast('/')
         val photoFile = File(context.photoDirectory, fileName)
-
-        if (photoFile.exists()) {
-            val thumbnailBitmap = BitmapUtils.createThumbnailFromFile(photoFile, context.contentResolver)
-            val thumbFile = File(context.photoDirectory, "thumb_$fileName")
-            Log.d("creating thumb", "thumb_$fileName")
-            FileOutputStream(thumbFile).use { out ->
-                thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
-            }
-            notifyItemChanged(call.stageIdx, Pair(call.photoIdx, "update_photo"))
+        val thumbnailBitmap = BitmapUtils.createThumbnailFromFile(photoFile, context.contentResolver)
+        val thumbFile = File(context.photoDirectory, "thumb_$fileName")
+        Log.d("creating thumb", "thumb_$fileName")
+        FileOutputStream(thumbFile).use { out ->
+            thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
         }
+        notifyItemChanged(call.stageIdx, Pair(call.photoIdx, "update_photo"))
     }
 }
