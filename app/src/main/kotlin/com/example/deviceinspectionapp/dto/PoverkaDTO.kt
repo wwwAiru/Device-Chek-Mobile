@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class PoverkaDTO(
-    val uuid: String,                 // Уникальный идентификатор поверки
-    val stages: List<StageDTO> // Список стадий поверки
+    val uuid: String,
+    val stages: List<StageDTO>
 )
 
