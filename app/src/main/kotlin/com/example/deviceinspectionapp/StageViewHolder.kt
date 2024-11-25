@@ -5,7 +5,6 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.util.DisplayMetrics
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
@@ -32,7 +31,7 @@ class StageViewHolder(
     private lateinit var stageDTO: StageDTO
 
     init {
-        // Вычисляем размер иконок в зависимости от устройства и версии
+        // Вычисляем размер иконок в зависимости от устройства
         val iconSize = calculateIconSize(context)
 
         // Перебираем все фото
@@ -101,36 +100,19 @@ class StageViewHolder(
     }
 
     fun updateThumbnail(photoIdx: Int) {
-        //require выбрасывает IllegalArgumentException, если условие не выполнено.
-        require(photoIdx in photoViews.indices) {
-            "Неверный индекс фото: $photoIdx. Ожидается диапазон: 0..${photoViews.size - 1}"
-        }
-
         val photoView = photoViews[photoIdx]
         val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
-
-        require(photoIdx < stageDTO.photos.size) {
-            "Неверный индекс фото: $photoIdx. В stageDTO.photos нет фото с таким индексом."
-        }
-
         val photoDTO = stageDTO.photos[photoIdx]
         val thumbFile = File(context.photoDirectory, "thumb_${photoDTO.imageFileName}")
-
         // Сбрасываем текущее изображение перед установкой нового
         imageView.setImageDrawable(null)
-
         if (thumbFile.exists()) {
-            // Устанавливаем миниатюру из файла
             imageView.setImageURI(FsUtils.getFileUri(context, thumbFile))
         } else {
-            // Устанавливаем значок камеры, если миниатюра отсутствует
             imageView.setImageResource(R.drawable.ic_camera)
+            throw RuntimeException("if (thumbFile.exists()) expecting file always exists")
         }
-
-        photoView.visibility = View.VISIBLE
     }
-
-
 
 
     // Функция отображения BottomSheetDialog для фото
@@ -155,7 +137,6 @@ class StageViewHolder(
 
         // Обработчик для кнопки повторной съёмки фото
         bottomSheetView.findViewById<View>(R.id.retakeButton).setOnClickListener {
-            // Переснимаем фото
             takePhoto(photoIdx)
             bottomSheetDialog.dismiss()
         }
@@ -167,8 +148,7 @@ class StageViewHolder(
 
     // Функция для съемки фото
     private fun takePhoto(photoIdx: Int) {
-        val photoFile =
-            File(context.photoDirectory, stageDTO.photos[photoIdx].imageFileName)
+        val photoFile = File(context.photoDirectory, stageDTO.photos[photoIdx].imageFileName)
         // Создаем дескриптор файла для фото
         val photoUri = FileProvider.getUriForFile(context, context.packageName, photoFile)
         // Запуск камеры для фотографирования
@@ -179,14 +159,7 @@ class StageViewHolder(
      * Запуск uCrop для обрезки изображения.
      */
     private fun startPhotoEditing(sourceUri: Uri, stageIdx: Int, photoIdx: Int) {
-        // Получаем размеры изображения
-        val originalSize = BitmapUtils.getImageDimensions(sourceUri, context)
-        if (originalSize == null) {
-            Log.e("UCrop", "Невозможно получить размеры изображения: $sourceUri")
-            return
-        }
-
-        // Формируем URI для сохранения результата с оригинальным именем файла
+        // Формируем URI для сохранения результата
         val destFile = File(context.photoDirectory, sourceUri.lastPathSegment!!)
         val destUri = Uri.fromFile(destFile)
 
@@ -197,7 +170,6 @@ class StageViewHolder(
             stageIdx = stageIdx,
             photoIdx = photoIdx
         )
-
         // Запускаем UCrop с использованием ActivityResultLauncher
         context.editPhotoLauncher.launch(photoEditorCall)
     }
