@@ -1,6 +1,5 @@
 package com.example.deviceinspectionapp
 
-import PoverkaAdapter
 import PoverkaDTO
 import android.os.Build
 import android.os.Bundle
@@ -34,21 +33,11 @@ class DeviceCheckActivity : AppCompatActivity() {
         val photoDirectoryPath = intent.getStringExtra("photoDirectoryPath")
 
         if (jsonData.isNullOrEmpty() || photoDirectoryPath.isNullOrEmpty()) {
-            Toast.makeText(this, "Ошибка: данные проверки или директория не переданы", Toast.LENGTH_LONG).show()
             Log.e("DeviceCheckActivity", "Данные из Intent не найдены или некорректны")
-            finish()
-            return
+            throw Exception("if (jsonData.isNullOrEmpty() ||" +
+                    " photoDirectoryPath.isNullOrEmpty()) нет данных из Main")
         }
-
         photoDirectory = File(photoDirectoryPath)
-        if (!photoDirectory.exists() || !photoDirectory.isDirectory) {
-            Toast.makeText(this, "Ошибка: директория для фото недоступна", Toast.LENGTH_LONG).show()
-            Log.e("DeviceCheckActivity", "Директория не существует: $photoDirectoryPath")
-            finish()
-            return
-        }
-
-        Log.d("DeviceCheckActivity", "photoDirectoryPath: $photoDirectory")
 
         try {
             poverkaDTO = Json.decodeFromString(jsonData)
@@ -76,21 +65,17 @@ class DeviceCheckActivity : AppCompatActivity() {
     private fun setupEditPhotoLauncher(): ActivityResultLauncher<PhotoEditorCall> {
         return registerForActivityResult(PhotoEditorCallResultPassingThrough()) { result ->
             if (result == null) {
-                Log.e("EditPhoto", "Редактирование не выполнено или отменено")
-                Toast.makeText(this, "Редактирование не выполнено", Toast.LENGTH_SHORT).show()
+                Log.i("EditPhoto", "Редактирование не выполнено или отменено")
                 return@registerForActivityResult
             }
-
             try {
                 poverkaAdapter.processPhotoEditEvent(result.stageIdx, result.photoIdx, result.fileUri)
             } catch (e: Exception) {
-                Toast.makeText(this, "Ошибка обработки редактированного фото", Toast.LENGTH_LONG).show()
                 Log.e("EditPhotoError", "Ошибка: ${e.message}")
+                throw e
             }
         }
     }
-
-
 
 
     @RequiresApi(Build.VERSION_CODES.N)
@@ -101,12 +86,11 @@ class DeviceCheckActivity : AppCompatActivity() {
                 Log.e("CameraError", "Ошибка при съемке фото")
                 return@registerForActivityResult
             }
-
             try {
                 poverkaAdapter.processPhotoTakenEvent(result)
             } catch (e: Exception) {
-                Toast.makeText(this, "Ошибка обработки фото", Toast.LENGTH_LONG).show()
                 Log.e("CameraError", "Ошибка: ${e.message}")
+                throw e
             }
         }
     }
