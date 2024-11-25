@@ -11,9 +11,8 @@ import kotlinx.serialization.Serializable
 data class PhotoDTO(
     val photoCodeName: String,
     val caption: String,
-    val imageFileName: String,        // Имя файла фотографии (формат: "uuid_stageCodeName_photoCodeName.jpg")
-    var uri: String? = null,          // URI изображения
-    var timestamp: Long? = null       // Время съемки фото (для возможной сортировки и восстановления)
+    val imageFileName: String,
+    var uri: String? = null
 )
 
 
