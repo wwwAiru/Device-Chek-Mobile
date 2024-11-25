@@ -1,46 +1,22 @@
 package com.example.deviceinspectionapp
 
 import android.content.ContentResolver
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import java.io.File
 import java.io.InputStream
 
 object BitmapUtils {
 
-
-    /**
-     * Получает размеры изображения по URI.
-     *
-     * @param uri URI изображения.
-     * @param context Контекст для получения ContentResolver.
-     * @return Пара ширины и высоты изображения, или null в случае ошибки.
-     */
-    fun getImageDimensions(uri: Uri, context: Context): Pair<Int, Int>? {
-        return try {
-            context.contentResolver.openInputStream(uri).use { inputStream ->
-                val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                BitmapFactory.decodeStream(inputStream, null, options)
-                options.outWidth to options.outHeight
-            }
-        } catch (e: Exception) {
-            Log.e("BitmapUtils", "Ошибка при получении размеров изображения: ${e.message}")
-            null
-        }
-    }
-
-
     /**
      * Поворачивает изображение на указанный угол.
      */
-    fun rotateBitmap(bitmap: Bitmap, degrees: Float): Bitmap {
+    private fun rotateBitmap(bitmap: Bitmap, degrees: Float): Bitmap {
         val matrix = Matrix()
         matrix.postRotate(degrees)
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
@@ -72,7 +48,7 @@ object BitmapUtils {
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            bitmap // Если не удается прочитать EXIF, возвращаем оригинал
+            bitmap
         } finally {
             inputStream?.close()
         }
