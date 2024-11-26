@@ -16,7 +16,7 @@ import java.io.File
 class DeviceCheckActivity : AppCompatActivity() {
 
     private lateinit var poverkaDTO: PoverkaDTO
-    private lateinit var poverkaAdapter: PoverkaAdapter
+    lateinit var poverkaAdapter: PoverkaAdapter
 
     lateinit var photoDirectory: File
     lateinit var takePictureLauncher: ActivityResultLauncher<CameraCall>
