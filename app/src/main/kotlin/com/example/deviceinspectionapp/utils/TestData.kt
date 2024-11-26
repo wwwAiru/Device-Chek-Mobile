@@ -13,7 +13,7 @@ class TestData private constructor() {
                 stages = listOf(
                     StageDTO(
                         stageCodeName = "check1",
-                        caption = "пролив №1",
+                        caption = "   Пролив №1 - тут для отладки длинное описание чтобы посмотреть как будет выглядеть многострочный текст.",
                         photos = generatePhotos("check1", 5) // Генерация 10 фотографий для стадии
                     ),
                     StageDTO(
@@ -40,6 +40,16 @@ class TestData private constructor() {
                         stageCodeName = "check6",
                         caption = "пролив №6",
                         photos = generatePhotos("check6", 1) // Генерация 10 фотографий для стадии
+                    ),
+                    StageDTO(
+                        stageCodeName = "check7",
+                        caption = "пролив №7",
+                        photos = generatePhotos("check7", 1) // Генерация 10 фотографий для стадии
+                    ),
+                    StageDTO(
+                        stageCodeName = "check8",
+                        caption = "пролив №8",
+                        photos = generatePhotos("check8", 1) // Генерация 10 фотографий для стадии
                     )
                 )
             )
