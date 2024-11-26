@@ -27,8 +27,15 @@ class StageViewHolder(
         LayoutInflater.from(stageView.context)
             .inflate(R.layout.item_photo, flexLayout, false)
     }
+    private val ivExpandArrow: ImageView = stageView.findViewById(R.id.ivExpandArrow)
+    private val tvStageCaption: TextView = stageView.findViewById(R.id.tvStageCaption)
+    private val stageHeaderContainer: View = stageView.findViewById(R.id.headerContainer)
+    private val photoContainer: View = stageView.findViewById(R.id.photoContainer)
+
     private var stageIdx: Int = -1
+    private var isExpanded: Boolean = false
     private lateinit var stageDTO: StageDTO
+
 
     init {
         // Вычисляем размер иконок в зависимости от устройства
@@ -40,7 +47,6 @@ class StageViewHolder(
 
             val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
             val textView: TextView = photoView.findViewById(R.id.photoName)
-
 
             // Устанавливаем динамический размер для иконок и текста
             val layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
@@ -66,11 +72,23 @@ class StageViewHolder(
         }
     }
 
-
     fun bind(stageIdx: Int, stageDTO: StageDTO) {
         this.stageIdx = stageIdx
         this.stageDTO = stageDTO
 
+        tvStageCaption.text = stageDTO.caption
+
+        // Устанавливаем обработчик клика на заголовок
+        stageHeaderContainer.setOnClickListener {
+            // Переключаем состояние expanded
+            isExpanded = !isExpanded
+            updateExpandState()
+        }
+
+        // Обновляем состояние развернутости
+        updateExpandState()
+
+        // Обновляем фото
         photoViews.forEachIndexed { photoIdx, photoView ->
             val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
 
@@ -99,6 +117,13 @@ class StageViewHolder(
         }
     }
 
+    private fun updateExpandState() {
+        ivExpandArrow.setImageResource(
+            if (isExpanded) R.drawable.ic_arrow_up else R.drawable.ic_arrow_down
+        )
+        photoContainer.visibility = if (isExpanded) View.VISIBLE else View.GONE
+    }
+
     fun updateThumbnail(photoIdx: Int) {
         val photoView = photoViews[photoIdx]
         val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
@@ -113,7 +138,6 @@ class StageViewHolder(
             throw RuntimeException("if (thumbFile.exists()) expecting file always exists")
         }
     }
-
 
     // Функция отображения BottomSheetDialog для фото
     private fun showPhotoOptionsBottomSheet(photoIdx: Int) {
@@ -145,7 +169,6 @@ class StageViewHolder(
         bottomSheetDialog.show()
     }
 
-
     // Функция для съемки фото
     private fun takePhoto(photoIdx: Int) {
         val photoFile = File(context.photoDirectory, stageDTO.photos[photoIdx].imageFileName)
@@ -173,7 +196,6 @@ class StageViewHolder(
         // Запускаем UCrop с использованием ActivityResultLauncher
         context.editPhotoLauncher.launch(photoEditorCall)
     }
-
 
     companion object {
         // Переменная для кэширования размера иконок
@@ -228,5 +250,4 @@ class StageViewHolder(
             return iconSize
         }
     }
-
 }

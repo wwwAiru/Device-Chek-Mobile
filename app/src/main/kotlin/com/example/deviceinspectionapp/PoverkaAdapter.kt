@@ -7,7 +7,6 @@ import android.os.Build
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.annotation.RequiresApi
 import androidx.recyclerview.widget.RecyclerView
@@ -80,13 +79,5 @@ class PoverkaAdapter(
             thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
         }
         notifyItemChanged(call.stageIdx, Pair(call.photoIdx, "update_photo"))
-    }
-
-    // Метод для переключения состояния развернут/свёрнут
-    fun toggleExpandedState(stageIdx: Int) {
-        val stageDTO = poverkaDTO.stages[stageIdx]
-        stageDTO.isExpanded = !stageDTO.isExpanded
-        // Уведомляем адаптер об изменении состояния конкретного элемента
-        notifyItemChanged(stageIdx)
     }
 }
