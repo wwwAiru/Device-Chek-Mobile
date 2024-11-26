@@ -1,36 +1,58 @@
-<!-- item_stage.xml -->
-
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:paddingTop="16dp"
+    android:paddingBottom="16dp"
+    android:layout_marginBottom="8dp"
+    android:background="@drawable/border_light_gray">
 
-    <TextView
-        android:id="@+id/tvStageName"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:text="Этап" />
-
-    <!-- Контейнер для фотографий -->
-    <ScrollView
+        <!-- Контейнер заголовка этапа -->
+    <LinearLayout
+        android:id="@+id/headerContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="@dimen/item_stage_scrollview_padding">
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="8dp"
+        android:clickable="true"
+        android:focusable="true">
 
-        <com.google.android.flexbox.FlexboxLayout
-            android:id="@+id/flexLayoutPhotos"
-            android:layout_width="match_parent"
+        <TextView
+            android:id="@+id/tvStageCaption"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            app:flexWrap="wrap"
-            app:justifyContent="flex_start"
-            app:alignItems="center"
-            android:padding="@dimen/item_stage_flexbox_padding"
-            android:orientation="horizontal">
+            android:layout_weight="5"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:ellipsize="end"/>
 
-        </com.google.android.flexbox.FlexboxLayout>
+        <ImageView
+            android:id="@+id/ivExpandArrow"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:padding="10dp"
+            android:src="@drawable/ic_arrow_down"
+            android:contentDescription="@string/item_stage_expand_arrow_icon" />
+    </LinearLayout>
 
-    </ScrollView>
+        <!-- Контейнер для фотографий -->
+    <LinearLayout
+        android:id="@+id/photoContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="@dimen/item_stage_scrollview_padding"
+        android:visibility="gone">
 
+    <com.google.android.flexbox.FlexboxLayout
+        android:id="@+id/flexLayoutPhotos"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:flexWrap="wrap"
+        app:justifyContent="flex_start"
+        app:alignItems="center"
+        android:padding="@dimen/item_stage_flexbox_padding"
+        android:orientation="horizontal" />
+    </LinearLayout>
 </LinearLayout>
