@@ -22,92 +22,89 @@ class StageViewHolder(
     private val context: DeviceCheckActivity,
     stageView: View,
 ) : RecyclerView.ViewHolder(stageView) {
-    private val flexLayout: FlexboxLayout = stageView.findViewById(R.id.flexLayoutPhotos)
+
+    // Корневой уровень
+    private val flexLayout: FlexboxLayout = stageView.findViewById(R.id.flexLayoutPhotos) // Контейнер фотографий
+    private val stageHeaderContainer: View = stageView.findViewById(R.id.headerContainer) // Контейнер заголовка
+    private val photosContainer: View = stageView.findViewById(R.id.photoContainer)       // Контейнер для фото
+
+    // Заголовок этапа
+    private val ivExpandArrow: ImageView = stageView.findViewById(R.id.ivExpandArrow)     // Иконка состояния (развёрнут/свёрнут)
+    private val tvStageCaption: TextView = stageView.findViewById(R.id.tvStageCaption)    // Название этапа
+
+    // Список фото
     private val photoViews: List<View> = List(10) {
         LayoutInflater.from(stageView.context)
-            .inflate(R.layout.item_photo, flexLayout, false)
+            .inflate(R.layout.item_photo, flexLayout, false)                             // Элементы фото
     }
-    private val ivExpandArrow: ImageView = stageView.findViewById(R.id.ivExpandArrow)
-    private val tvStageCaption: TextView = stageView.findViewById(R.id.tvStageCaption)
-    private val stageHeaderContainer: View = stageView.findViewById(R.id.headerContainer)
-    private val photoContainer: View = stageView.findViewById(R.id.photoContainer)
 
-    private var stageIdx: Int = -1
-    private var isExpanded: Boolean = false
-    private lateinit var stageDTO: StageDTO
-
+    private var stageIdx: Int = -1                                                       // Индекс текущего этапа
+    private var isExpanded: Boolean = false                                              // Состояние развёрнутости
+    private lateinit var stageDTO: StageDTO                                              // Данные этапа
 
     init {
-        // Вычисляем размер иконок в зависимости от устройства
+        // Рассчёт размера иконок
         val iconSize = calculateIconSize(context)
 
-        // Перебираем все фото
-        photoViews.forEachIndexed { photoIdx, photoView ->
-            photoView.visibility = View.GONE  // Скрываем фото до тех пор, пока не будет установлено
-
-            val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
-            val textView: TextView = photoView.findViewById(R.id.photoName)
-
-            // Устанавливаем динамический размер для иконок и текста
-            val layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
-            imageView.layoutParams = layoutParams
-            textView.maxWidth = iconSize
-
-            // Устанавливаем обработчик клика на фото
-            imageView.setOnClickListener {
-                val photoDTO = stageDTO.photos[photoIdx]
-                val photoFile = File(context.photoDirectory, photoDTO.imageFileName)
-
-                if (photoFile.exists()) {
-                    // Фото существует, показываем BottomSheet с опциями
-                    showPhotoOptionsBottomSheet(photoIdx)
-                } else {
-                    // Иначе начинаем процесс фотографирования
-                    takePhoto(photoIdx)
-                }
-            }
-
-            // Добавляем фото в FlexboxLayout
-            flexLayout.addView(photoView)
-        }
-    }
-
-    fun bind(stageIdx: Int, stageDTO: StageDTO) {
-        this.stageIdx = stageIdx
-        this.stageDTO = stageDTO
-
-        tvStageCaption.text = stageDTO.caption
-
-        // Устанавливаем обработчик клика на заголовок
+        // Инициализация заголовка
         stageHeaderContainer.setOnClickListener {
-            // Переключаем состояние expanded
             isExpanded = !isExpanded
             updateExpandState()
         }
 
-        // Обновляем состояние развернутости
-        updateExpandState()
+        // Инициализация фотографий
+        photoViews.forEachIndexed { photoIdx, photoView ->
+            photoView.visibility = View.GONE // Фото скрыты по умолчанию
 
-        // Обновляем фото
+            // Элементы фотографии
+            val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
+            val textView: TextView = photoView.findViewById(R.id.photoName)
+
+            // Установка размеров
+            val layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+            imageView.layoutParams = layoutParams
+            textView.maxWidth = iconSize
+
+            // Обработчик кликов на фото
+            imageView.setOnClickListener {
+                val photoDTO = stageDTO.photos[photoIdx]
+                val photoFile = File(context.photoDirectory, photoDTO.imageFileName)
+                if (photoFile.exists()) {
+                    showPhotoOptionsBottomSheet(photoIdx) // Показываем диалог опций
+                } else {
+                    takePhoto(photoIdx) // Начинаем процесс съёмки
+                }
+            }
+
+            // Добавление фото в FlexboxLayout
+            flexLayout.addView(photoView)
+        }
+    }
+
+    // Привязка данных этапа
+    fun bind(stageIdx: Int, stageDTO: StageDTO) {
+        this.stageIdx = stageIdx
+        this.stageDTO = stageDTO
+
+        tvStageCaption.text = stageDTO.caption // Обновляем заголовок
+        updateExpandState()                   // Обновляем состояние развёрнутости
+
+        // Обновление фото
         photoViews.forEachIndexed { photoIdx, photoView ->
             val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
 
-            if (photoIdx < this.stageDTO.photos.size) {
-                val photoDTO = this.stageDTO.photos[photoIdx]
-
+            if (photoIdx < stageDTO.photos.size) {
+                val photoDTO = stageDTO.photos[photoIdx]
                 val textView: TextView = photoView.findViewById(R.id.photoName)
                 textView.text = photoDTO.caption
 
                 val thumbFile = File(context.photoDirectory, "thumb_${photoDTO.imageFileName}")
-
-                // Сбрасываем кэш изображения перед обновлением
-                imageView.setImageDrawable(null)
+                imageView.setImageDrawable(null) // Сброс кэша изображения
 
                 if (thumbFile.exists()) {
                     imageView.setImageURI(FsUtils.getFileUri(context, thumbFile))
                 } else {
-                    // Если миниатюры нет, установите значок камеры
-                    imageView.setImageResource(R.drawable.ic_camera)
+                    imageView.setImageResource(R.drawable.ic_camera) // Иконка по умолчанию
                 }
 
                 photoView.visibility = View.VISIBLE
@@ -117,13 +114,15 @@ class StageViewHolder(
         }
     }
 
+    // Обновление состояния развёрнутости
     private fun updateExpandState() {
         ivExpandArrow.setImageResource(
             if (isExpanded) R.drawable.ic_arrow_up else R.drawable.ic_arrow_down
         )
-        photoContainer.visibility = if (isExpanded) View.VISIBLE else View.GONE
+        photosContainer.visibility = if (isExpanded) View.VISIBLE else View.GONE
     }
 
+    // Обновление миниатюры фотографии
     fun updateThumbnail(photoIdx: Int) {
         val photoView = photoViews[photoIdx]
         val imageView: ImageView = photoView.findViewById(R.id.ivPhoto)
@@ -139,23 +138,21 @@ class StageViewHolder(
         }
     }
 
-    // Функция отображения BottomSheetDialog для фото
+    // Показ диалогового окна с опциями фото
     private fun showPhotoOptionsBottomSheet(photoIdx: Int) {
         val bottomSheetDialog = BottomSheetDialog(context)
         val bottomSheetView = LayoutInflater.from(context)
             .inflate(R.layout.bottom_sheet_photo_options, null, false)
 
-        // Находим и устанавливаем фото
+        // Элементы диалога
         val imageView: ImageView = bottomSheetView.findViewById(R.id.fullImageView)
         val photoDTO = stageDTO.photos[photoIdx]
         val photoFile = File(context.photoDirectory, photoDTO.imageFileName)
+        imageView.setImageURI(Uri.fromFile(photoFile))
 
-        val photoUri = Uri.fromFile(photoFile)
-        imageView.setImageURI(photoUri)
-
-        // Обработчик для кнопки редактирования фото
+        // Кнопки в диалоге
         bottomSheetView.findViewById<View>(R.id.editButton).setOnClickListener {
-            startPhotoEditing(photoUri, stageIdx, photoIdx)
+            startPhotoEditing(Uri.fromFile(photoFile), stageIdx, photoIdx)
             bottomSheetDialog.dismiss()
         }
 
@@ -169,36 +166,28 @@ class StageViewHolder(
         bottomSheetDialog.show()
     }
 
-    // Функция для съемки фото
+    // Начало съёмки фото
     private fun takePhoto(photoIdx: Int) {
         val photoFile = File(context.photoDirectory, stageDTO.photos[photoIdx].imageFileName)
-        // Создаем дескриптор файла для фото
         val photoUri = FileProvider.getUriForFile(context, context.packageName, photoFile)
-        // Запуск камеры для фотографирования
         context.takePictureLauncher.launch(CameraCall(photoUri, stageIdx, photoIdx))
     }
 
-    /**
-     * Запуск uCrop для обрезки изображения.
-     */
+    // Редактирование фото
     private fun startPhotoEditing(sourceUri: Uri, stageIdx: Int, photoIdx: Int) {
-        // Формируем URI для сохранения результата
         val destFile = File(context.photoDirectory, sourceUri.lastPathSegment!!)
         val destUri = Uri.fromFile(destFile)
-
-        // Создаем объект PhotoEditorCall с нужными данными
-        val photoEditorCall = PhotoEditorCall(
-            fileUri = sourceUri,
-            destinationUri = destUri,
-            stageIdx = stageIdx,
-            photoIdx = photoIdx
+        context.editPhotoLauncher.launch(
+            PhotoEditorCall(
+                fileUri = sourceUri,
+                destinationUri = destUri,
+                stageIdx = stageIdx,
+                photoIdx = photoIdx
+            )
         )
-        // Запускаем UCrop с использованием ActivityResultLauncher
-        context.editPhotoLauncher.launch(photoEditorCall)
     }
 
     companion object {
-        // Переменная для кэширования размера иконок
         private var cachedIconSize: Int? = null
 
         // Метод для вычисления или получения кэшированного значения размера иконок
