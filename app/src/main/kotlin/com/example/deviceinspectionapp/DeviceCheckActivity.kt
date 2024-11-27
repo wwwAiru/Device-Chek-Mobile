@@ -32,21 +32,9 @@ class DeviceCheckActivity : AppCompatActivity() {
         val jsonData = intent.getStringExtra("jsonData")
         val photoDirectoryPath = intent.getStringExtra("photoDirectoryPath")
 
-        if (jsonData.isNullOrEmpty() || photoDirectoryPath.isNullOrEmpty()) {
-            Log.e("DeviceCheckActivity", "Данные из Intent не найдены или некорректны")
-            throw Exception("if (jsonData.isNullOrEmpty() ||" +
-                    " photoDirectoryPath.isNullOrEmpty()) нет данных из Main")
-        }
         photoDirectory = File(photoDirectoryPath)
 
-        try {
-            poverkaDTO = Json.decodeFromString(jsonData)
-        } catch (e: Exception) {
-            Toast.makeText(this, "Ошибка: некорректный JSON формат данных", Toast.LENGTH_LONG).show()
-            Log.e("DeviceCheckActivity", "Ошибка декодирования JSON: ${e.message}")
-            finish()
-            return
-        }
+        poverkaDTO = Json.decodeFromString(jsonData!!)
 
         // Устанавливаем RecyclerView
         val recyclerView: RecyclerView = findViewById(R.id.recyclerViewStages)
