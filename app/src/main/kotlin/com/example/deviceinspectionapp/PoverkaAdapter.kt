@@ -45,17 +45,16 @@ class PoverkaAdapter(
     ) {
         // Если есть payloads, обрабатываем их
         if (payloads.isNotEmpty()) {
-            payloads.map { payload ->
-                when (payload) {
-                    is UpdateEvent.PhotoUpdate -> {
-                        payload.photoIdx
-                    }
-                    else -> throw RuntimeException("Неизвестный payload: $payload")
+            payloads
+                .filterIsInstance<UpdateEvent.PhotoUpdate>()
+                .map {
+                    it.photoIdx
                 }
-            }.toSet().forEach {
-                holder.updateThumbnail(it)
-                Log.d("onBindViewHolder_2", "stage $stageIdx обновление фото: ${it}")
-            }
+                .toSet()
+                .forEach {
+                    Log.d("onBindViewHolder_2", "stage $stageIdx обновление фото: ${it}")
+                    holder.updateThumbnail(it)
+                }
         } else {
             // Полное обновление стадии, если payloads пуст
             Log.d("onBindViewHolder_2", "Полное обновление стадии $stageIdx, payloads: $payloads")
