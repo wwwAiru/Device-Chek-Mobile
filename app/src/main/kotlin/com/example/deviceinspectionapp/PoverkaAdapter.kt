@@ -39,10 +39,12 @@ class PoverkaAdapter(
 
     override fun onBindViewHolder(holder: StageViewHolder, position: Int, payloads: MutableList<Any>) {
         if (payloads.isNotEmpty()) {
-            val payload = payloads.last() as Pair<*,*>
-            holder.updateThumbnail(payload.first as Int)
+            val payload = payloads.last() // Получаем последний элемент payloads
+            if (payload is UpdateEvent.PhotoUpdate) {
+                holder.updateThumbnail(payload.photoIdx)
+            }
         } else {
-            // Полное обновление, если `payload` пуст
+            // Полное обновление, если payloads пуст
             holder.bind(position, poverkaDTO.stages[position])
         }
     }
@@ -56,21 +58,22 @@ class PoverkaAdapter(
     fun processPhotoEditEvent(stageIdx: Int, photoIdx: Int, editedPhotoUri: Uri) {
         val editedFileName = editedPhotoUri.path!!.substringAfterLast('/')
         val editedPhotoFile = File(context.photoDirectory, editedFileName)
-            // Создаем миниатюру из редактированного фото
-            val thumbnailBitmap = BitmapUtils.createThumbnailFromFile(editedPhotoFile, context.contentResolver)
-            // Формируем имя миниатюры
-            val thumbFile = File(context.photoDirectory, "thumb_$editedFileName")
-            Log.d("creating thumb", "thumb_$editedFileName")
-            FileOutputStream(thumbFile).use { out ->
-                thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
-            }
+        // Создаем миниатюру из редактированного фото
+        val thumbnailBitmap =
+            BitmapUtils.createThumbnailFromFile(editedPhotoFile, context.contentResolver)
+        // Формируем имя миниатюры
+        val thumbFile = File(context.photoDirectory, "thumb_$editedFileName")
+        Log.d("creating thumb", "thumb_$editedFileName")
+        FileOutputStream(thumbFile).use { out ->
+            thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
+        }
 
-            ExifUtils.updateExifTimestamp(editedPhotoFile)
+        ExifUtils.updateExifTimestamp(editedPhotoFile)
         val exifDataAfterEdit = ExifUtils.readExifData(editedPhotoFile)
         ExifUtils.logExifData("EXIF AFTER", exifDataAfterEdit)
 
-            // Уведомляем адаптер об изменениях конкретного элемента
-            notifyItemChanged(stageIdx, Pair(photoIdx, "update_photo"))
+        // Уведомляем адаптер об изменениях конкретного элемента
+        notifyItemChanged(stageIdx, UpdateEvent.PhotoUpdate(photoIdx))
     }
 
 
@@ -78,12 +81,17 @@ class PoverkaAdapter(
     fun processPhotoTakenEvent(call: CameraCall) {
         val fileName = call.fileUri.path!!.substringAfterLast('/')
         val photoFile = File(context.photoDirectory, fileName)
-        val thumbnailBitmap = BitmapUtils.createThumbnailFromFile(photoFile, context.contentResolver)
+        val thumbnailBitmap =
+            BitmapUtils.createThumbnailFromFile(photoFile, context.contentResolver)
         val thumbFile = File(context.photoDirectory, "thumb_$fileName")
         Log.d("creating thumb", "thumb_$fileName")
         FileOutputStream(thumbFile).use { out ->
             thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
         }
-        notifyItemChanged(call.stageIdx, Pair(call.photoIdx, "update_photo"))
+        notifyItemChanged(call.stageIdx, UpdateEvent.PhotoUpdate(call.photoIdx))
     }
+}
+
+sealed class UpdateEvent {
+    data class PhotoUpdate(val photoIdx: Int) : UpdateEvent()
 }
