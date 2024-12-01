@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import androidx.annotation.RequiresApi
 import androidx.recyclerview.widget.RecyclerView
+import com.example.deviceinspectionapp.utils.ExifUtils
 import java.io.File
 import java.io.FileOutputStream
 
@@ -63,6 +64,11 @@ class PoverkaAdapter(
             FileOutputStream(thumbFile).use { out ->
                 thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
             }
+
+            ExifUtils.updateExifTimestamp(editedPhotoFile)
+        val exifDataAfterEdit = ExifUtils.readExifData(editedPhotoFile)
+        ExifUtils.logExifData("EXIF AFTER", exifDataAfterEdit)
+
             // Уведомляем адаптер об изменениях конкретного элемента
             notifyItemChanged(stageIdx, Pair(photoIdx, "update_photo"))
     }
