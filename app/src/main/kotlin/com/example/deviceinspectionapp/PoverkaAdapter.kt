@@ -38,20 +38,23 @@ class PoverkaAdapter(
 //        holder.bind(position, poverkaDTO.stages[position])
     }
 
-    override fun onBindViewHolder(holder: StageViewHolder, stageIdx: Int, payloads: MutableList<Any>) {
+    override fun onBindViewHolder(
+        holder: StageViewHolder,
+        stageIdx: Int,
+        payloads: MutableList<Any>
+    ) {
         // Если есть payloads, обрабатываем их
         if (payloads.isNotEmpty()) {
-            // Проходим по всем payloads и собираем индексы
-            payloads.forEach { payload ->
+            payloads.map { payload ->
                 when (payload) {
                     is UpdateEvent.PhotoUpdate -> {
-                        holder.updateThumbnail(payload.photoIdx)
-                        Log.d("onBindViewHolder_2", "stage $stageIdx обновление фото: ${payload.photoIdx}")
+                        payload.photoIdx
                     }
-                    else -> {
-                        throw RuntimeException("Неизвестный payload: $payload")
-                    }
+                    else -> throw RuntimeException("Неизвестный payload: $payload")
                 }
+            }.toSet().forEach {
+                holder.updateThumbnail(it)
+                Log.d("onBindViewHolder_2", "stage $stageIdx обновление фото: ${it}")
             }
         } else {
             // Полное обновление стадии, если payloads пуст
