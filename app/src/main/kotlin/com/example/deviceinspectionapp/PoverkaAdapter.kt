@@ -29,25 +29,46 @@ class PoverkaAdapter(
             .inflate(R.layout.item_stage, parent, false) as LinearLayout
         return StageViewHolder(
             context,
-            stageView,
+            stageView
         )
     }
 
     override fun onBindViewHolder(holder: StageViewHolder, position: Int) {
-        holder.bind(position, poverkaDTO.stages[position])
+        Log.d("onBindViewHolder", "onBindViewHolder(holder: StageViewHolder, position: Int)")
+//        holder.bind(position, poverkaDTO.stages[position])
     }
 
-    override fun onBindViewHolder(holder: StageViewHolder, position: Int, payloads: MutableList<Any>) {
+    override fun onBindViewHolder(holder: StageViewHolder, stageIdx: Int, payloads: MutableList<Any>) {
+        // Если есть payloads, обрабатываем их
         if (payloads.isNotEmpty()) {
-            val payload = payloads.last() // Получаем последний элемент payloads
-            if (payload is UpdateEvent.PhotoUpdate) {
-                holder.updateThumbnail(payload.photoIdx)
+            // Собираем все индексы для обновления
+            val photoIndexesToUpdate = mutableSetOf<Int>()
+
+            // Проходим по всем payloads и собираем индексы
+            payloads.forEach { payload ->
+                when (payload) {
+                    is UpdateEvent.PhotoUpdate -> {
+                        photoIndexesToUpdate.add(payload.photoIdx)
+                    }
+                    else -> {
+                        throw RuntimeException("Неизвестный payload: $payload")
+                    }
+                }
+            }
+
+            // Обновляем миниатюры для всех собранных индексов
+            photoIndexesToUpdate.forEach { photoIdx ->
+                holder.updateThumbnail(photoIdx)
+                Log.d("onBindViewHolder_2", "стадия $stageIdx обновление фото: $photoIdx")
             }
         } else {
-            // Полное обновление, если payloads пуст
-            holder.bind(position, poverkaDTO.stages[position])
+            // Полное обновление стадии, если payloads пуст
+            Log.d("onBindViewHolder_2", "Полное обновление стадии $stageIdx, payloads: $payloads")
+            holder.bind(stageIdx, poverkaDTO.stages[stageIdx])
         }
     }
+
+
 
 
     override fun getItemCount(): Int {
