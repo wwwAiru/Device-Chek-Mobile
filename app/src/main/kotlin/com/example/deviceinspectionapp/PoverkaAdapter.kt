@@ -41,25 +41,17 @@ class PoverkaAdapter(
     override fun onBindViewHolder(holder: StageViewHolder, stageIdx: Int, payloads: MutableList<Any>) {
         // Если есть payloads, обрабатываем их
         if (payloads.isNotEmpty()) {
-            // Собираем все индексы для обновления
-            val photoIndexesToUpdate = mutableSetOf<Int>()
-
             // Проходим по всем payloads и собираем индексы
             payloads.forEach { payload ->
                 when (payload) {
                     is UpdateEvent.PhotoUpdate -> {
-                        photoIndexesToUpdate.add(payload.photoIdx)
+                        holder.updateThumbnail(payload.photoIdx)
+                        Log.d("onBindViewHolder_2", "stage $stageIdx обновление фото: ${payload.photoIdx}")
                     }
                     else -> {
                         throw RuntimeException("Неизвестный payload: $payload")
                     }
                 }
-            }
-
-            // Обновляем миниатюры для всех собранных индексов
-            photoIndexesToUpdate.forEach { photoIdx ->
-                holder.updateThumbnail(photoIdx)
-                Log.d("onBindViewHolder_2", "стадия $stageIdx обновление фото: $photoIdx")
             }
         } else {
             // Полное обновление стадии, если payloads пуст
