@@ -14,6 +14,7 @@ import android.widget.TextView
 import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.RecyclerView
 import com.example.deviceinspectionapp.preferences.AppPreferences
+import com.example.deviceinspectionapp.utils.ExifUtils
 import com.google.android.flexbox.FlexboxLayout
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.io.File
@@ -177,6 +178,10 @@ class StageViewHolder(
     private fun startPhotoEditing(sourceUri: Uri, stageIdx: Int, photoIdx: Int) {
         val destFile = File(context.photoDirectory, sourceUri.lastPathSegment!!)
         val destUri = Uri.fromFile(destFile)
+
+        val exifDataBeforeEdit = ExifUtils.readExifData(destFile)
+        ExifUtils.logExifData("EXIF BEFORE", exifDataBeforeEdit)
+
         context.editPhotoLauncher.launch(
             PhotoEditorCall(
                 fileUri = sourceUri,
