@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.deviceinspectionapp"
-        minSdk = 21
+        minSdk = 23
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -48,11 +48,15 @@ android {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.3")
+    // Для работы с изображениями
+    implementation(libs.androidx.exifinterface)
+    implementation(libs.ucrop)
+
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.serialization.core)
     // для переопределения ActivityResultContract
-    implementation ("androidx.activity:activity-ktx:1.9.3")
-    implementation ("androidx.fragment:fragment-ktx:1.8.5")
+    implementation (libs.androidx.activity.ktx)
+    implementation (libs.androidx.fragment.ktx)
     // Базовые зависимости Android
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -67,10 +71,8 @@ dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
 
-    // Для работы с изображениями
+
     implementation(libs.flexbox)
-    implementation("androidx.exifinterface:exifinterface:1.3.6")
-    implementation("com.github.yalantis:ucrop:2.2.8")
 
 
     // Тестовые зависимости
