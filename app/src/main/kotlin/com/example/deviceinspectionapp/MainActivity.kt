@@ -4,7 +4,6 @@ import PoverkaDTO
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
@@ -12,7 +11,6 @@ import android.widget.Button
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.deviceinspectionapp.utils.TestData
@@ -22,12 +20,11 @@ import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
-    private var cameraAppPackageName: String? = null
-    private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
+    private lateinit var permissionLauncher: ActivityResultLauncher<String>
     private lateinit var photoDirectory: File
     private lateinit var poverkaDTO: PoverkaDTO
+    private var cameraAppPackageName: String? = null
 
-    @RequiresApi(Build.VERSION_CODES.M)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -38,7 +35,7 @@ class MainActivity : AppCompatActivity() {
         // Инициализация директории для фото
         setupPhotoDirectory()
 
-        // Загрузка данных поверки из JSON или генерация заглушек
+        // Генерация тестовых данных
         poverkaDTO = TestData.createTestInspectionData()
 
         // Ищем приложение для камеры
@@ -52,18 +49,18 @@ class MainActivity : AppCompatActivity() {
         // Кнопка для начала новой поверки
         val btnStartInspection: Button = findViewById(R.id.btnStartInspection)
         btnStartInspection.setOnClickListener {
-            if (checkPermissions()) {
+            if (checkCameraPermission()) {
                 startDeviceCheckActivity()
             } else {
-                requestPermissions()
+                requestCameraPermission()
             }
         }
     }
 
     private fun setupPermissionLauncher() {
-        permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            val allPermissionsGranted = permissions.all { it.value }
-            if (allPermissionsGranted) {
+        // Используем ActivityResultLauncher для запроса разрешения на камеру
+        permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
                 Toast.makeText(this, "Разрешение предоставлено.", Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(this, "Разрешение не предоставлено, приложение закрыто.", Toast.LENGTH_LONG).show()
@@ -82,7 +79,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.M)
     private fun findCameraApp(): String? {
         return packageManager.queryIntentActivities(
             Intent(MediaStore.ACTION_IMAGE_CAPTURE),
@@ -99,22 +95,14 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
-    private fun checkPermissions(): Boolean {
-        val cameraPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-        val storagePermission = if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
-            ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        } else {
-            PackageManager.PERMISSION_GRANTED
-        }
-        return cameraPermission == PackageManager.PERMISSION_GRANTED && storagePermission == PackageManager.PERMISSION_GRANTED
+    private fun checkCameraPermission(): Boolean {
+        // Проверка разрешения на камеру
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
     }
 
-    private fun requestPermissions() {
-        val permissions = mutableListOf(Manifest.permission.CAMERA)
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
-            permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        }
-        permissionLauncher.launch(permissions.toTypedArray())
+    private fun requestCameraPermission() {
+        // Запрос разрешения на камеру
+        permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
     private fun startDeviceCheckActivity() {
