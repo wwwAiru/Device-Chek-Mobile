@@ -23,7 +23,7 @@ class DeviceCheckActivity : AppCompatActivity() {
     lateinit var editPhotoLauncher: ActivityResultLauncher<PhotoEditorCall>
 
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    @RequiresApi(Build.VERSION_CODES.N)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_device_check)
@@ -49,7 +49,7 @@ class DeviceCheckActivity : AppCompatActivity() {
         editPhotoLauncher = setupEditPhotoLauncher()
     }
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    @RequiresApi(Build.VERSION_CODES.N)
     private fun setupEditPhotoLauncher(): ActivityResultLauncher<PhotoEditorCall> {
         return registerForActivityResult(PhotoEditorCallResultPassingThrough()) { result ->
             if (result == null) {
