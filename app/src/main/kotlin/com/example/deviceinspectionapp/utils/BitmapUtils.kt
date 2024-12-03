@@ -25,7 +25,6 @@ object BitmapUtils {
     /**
      * Поворачивает изображение в зависимости от EXIF-ориентации.
      */
-    @RequiresApi(Build.VERSION_CODES.N)
     fun rotateImageIfRequired(
         bitmap: Bitmap,
         photoUri: Uri,
@@ -34,8 +33,17 @@ object BitmapUtils {
         var inputStream: InputStream? = null
         return try {
             inputStream = contentResolver.openInputStream(photoUri)
-            val exif = inputStream?.let { ExifInterface(it) }
-            val orientation = exif?.getAttributeInt(
+
+            val exif = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Для API 29 и выше используем конструктор с InputStream
+                ExifInterface(inputStream!!)
+            } else {
+                // Для более старых версий используем путь к файлу
+                val file = File(photoUri.path!!)
+                ExifInterface(file.absolutePath)  // Здесь используем абсолютный путь
+            }
+
+            val orientation = exif.getAttributeInt(
                 ExifInterface.TAG_ORIENTATION,
                 ExifInterface.ORIENTATION_NORMAL
             )
