@@ -3,8 +3,8 @@ package com.example.deviceinspectionapp
 import StageDTO
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import android.util.DisplayMetrics
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
@@ -202,18 +202,14 @@ class StageViewHolder(
                 return it
             }
 
-            // Логика вычисления размера иконок
             val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-            val windowMetrics = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                windowManager.currentWindowMetrics
-            } else {
-                val display = windowManager.defaultDisplay
-                @Suppress("DEPRECATION")
-                display.getMetrics(DisplayMetrics())
-                return DisplayMetrics().widthPixels
-            }
+            val display = windowManager.defaultDisplay
+            val displayMetrics = DisplayMetrics()
 
-            val screenWidth = windowMetrics.bounds.width()
+            // Получаем размеры экрана для API 23 и выше
+            display.getMetrics(displayMetrics)
+
+            val screenWidth = displayMetrics.widthPixels
 
             // Получаем количество иконок в строке из AppPreferences
             val iconsInRow = AppPreferences.getIconsInRow(context)
