@@ -50,6 +50,8 @@
         <!-- DeviceCheckActivity, основной активити для процесса проверки -->
         <activity android:name=".DeviceCheckActivity"
             android:screenOrientation="portrait"/>
+        <activity android:name=".SettingsActivity"
+            android:screenOrientation="portrait"/>
 
 
 
