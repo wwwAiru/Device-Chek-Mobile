@@ -14,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.deviceinspectionapp.utils.TestData
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -28,25 +29,25 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        initializeComponents()
+        setupUI()
+    }
 
-        // Инициализация запуска разрешений
+    private fun initializeComponents() {
         setupPermissionLauncher()
-
-        // Инициализация директории для фото
         setupPhotoDirectory()
-
-        // Загрузка данных поверки из JSON или генерация заглушек
+        setupSettingsDirectory()
+        Service.loadSettings(this)
         poverkaDTO = TestData.createTestInspectionData()
-
-        // Ищем приложение для камеры
         cameraAppPackageName = findCameraApp()
-        if (cameraAppPackageName == null) {
-            Toast.makeText(this, "Приложение камеры не найдено. Завершаем работу.", Toast.LENGTH_LONG).show()
-            finish()
-            return
-        }
 
-        // Кнопка для начала новой поверки
+        if (cameraAppPackageName == null) {
+            Toast.makeText(this,"Приложение камеры не найдено. Завершаем работу.", Toast.LENGTH_LONG).show()
+            finish()
+        }
+    }
+
+    private fun setupUI() {
         val btnStartInspection: Button = findViewById(R.id.btnStartInspection)
         btnStartInspection.setOnClickListener {
             if (checkCameraPermission()) {
@@ -55,21 +56,27 @@ class MainActivity : AppCompatActivity() {
                 requestCameraPermission()
             }
         }
+
+        val buttonSettings: FloatingActionButton = findViewById(R.id.settings_button)
+        buttonSettings.setOnClickListener {
+            startSettingsActivity()
+        }
     }
 
     private fun setupPermissionLauncher() {
         permissionLauncher =
             registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
                 val isCameraPermissionGranted = permissions[Manifest.permission.CAMERA] == true
-                if (isCameraPermissionGranted) {
-                    Toast.makeText(this, "Разрешение на камеру предоставлено.", Toast.LENGTH_SHORT).show()
+                val message = if (isCameraPermissionGranted) {
+                    "Разрешение на камеру предоставлено."
                 } else {
-                    Toast.makeText(
-                        this,
-                        "Разрешение на камеру не предоставлено.",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    "Разрешение на камеру не предоставлено."
                 }
+                Toast.makeText(
+                    this,
+                    message,
+                    if (isCameraPermissionGranted) Toast.LENGTH_SHORT else Toast.LENGTH_LONG
+                ).show()
             }
     }
 
@@ -83,31 +90,43 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupSettingsDirectory() {
+        val settingsDir = File(filesDir, "settings")
+        if (!settingsDir.exists() && !settingsDir.mkdirs()) {
+            Toast.makeText(this, "Не удалось создать директорию 'settings', приложение закрыто.", Toast.LENGTH_LONG).show()
+            finish()
+        } else {
+            Log.d("Settings", "Директория 'settings' создана.")
+        }
+    }
+
+
     private fun findCameraApp(): String? {
         return packageManager.queryIntentActivities(
             Intent(MediaStore.ACTION_IMAGE_CAPTURE),
             PackageManager.MATCH_ALL
-        )
-            .let {
-                if (it.isNotEmpty()) {
-                    it[0].activityInfo.packageName
-                } else {
-                    Log.d("MainActivity", "Камера не найдена")
-                    Toast.makeText(this, "Приложение камера не найдено", Toast.LENGTH_SHORT).show()
-                    null
-                }
+        ).let {
+            if (it.isNotEmpty()) {
+                it[0].activityInfo.packageName
+            } else {
+                Log.d("MainActivity", "Камера не найдена")
+                Toast.makeText(this, "Приложение камера не найдено", Toast.LENGTH_SHORT).show()
+                null
             }
+        }
     }
 
     private fun checkCameraPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.CAMERA
-        ) == PackageManager.PERMISSION_GRANTED
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun requestCameraPermission() {
         permissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
+    }
+
+    private fun startSettingsActivity() {
+        val intent = Intent(this, SettingsActivity::class.java)
+        startActivity(intent)
     }
 
     private fun startDeviceCheckActivity() {
