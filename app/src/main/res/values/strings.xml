@@ -6,4 +6,5 @@
     <string name="bottom_sheet_button_retake">Переснять</string>
     <string name="activity_device_check_title">Этапы поверки</string>
     <string name="item_stage_expand_arrow_icon">expand icon</string>
+    <string name="settings_menu_description">меню</string>
 </resources>
