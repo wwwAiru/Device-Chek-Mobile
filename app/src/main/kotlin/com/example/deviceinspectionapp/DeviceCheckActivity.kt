@@ -1,12 +1,10 @@
 package com.example.deviceinspectionapp
 
 import PoverkaDTO
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -23,7 +21,6 @@ class DeviceCheckActivity : AppCompatActivity() {
     lateinit var editPhotoLauncher: ActivityResultLauncher<PhotoEditorCall>
 
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_device_check)
@@ -49,7 +46,6 @@ class DeviceCheckActivity : AppCompatActivity() {
         editPhotoLauncher = setupEditPhotoLauncher()
     }
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private fun setupEditPhotoLauncher(): ActivityResultLauncher<PhotoEditorCall> {
         return registerForActivityResult(PhotoEditorCallResultPassingThrough()) { result ->
             if (result == null) {
@@ -66,7 +62,6 @@ class DeviceCheckActivity : AppCompatActivity() {
     }
 
 
-    @RequiresApi(Build.VERSION_CODES.N)
     private fun setupTakePictureLauncher(): ActivityResultLauncher<CameraCall> {
         return registerForActivityResult(CameraCallResultPassingThrough()) { result ->
             if (result == null) {

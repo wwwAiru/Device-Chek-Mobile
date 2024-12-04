@@ -6,8 +6,6 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
-import android.os.Build
-import androidx.annotation.RequiresApi
 import java.io.File
 import java.io.InputStream
 
@@ -25,7 +23,6 @@ object BitmapUtils {
     /**
      * Поворачивает изображение в зависимости от EXIF-ориентации.
      */
-    @RequiresApi(Build.VERSION_CODES.N)
     fun rotateImageIfRequired(
         bitmap: Bitmap,
         photoUri: Uri,
@@ -57,7 +54,6 @@ object BitmapUtils {
     /**
      * Создает миниатюру из файла изображения.
      */
-    @RequiresApi(Build.VERSION_CODES.N)
     fun createThumbnailFromFile(
         photoFile: File,
         contentResolver: ContentResolver,

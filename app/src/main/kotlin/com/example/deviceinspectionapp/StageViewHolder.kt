@@ -3,7 +3,6 @@ package com.example.deviceinspectionapp
 import StageDTO
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import android.util.DisplayMetrics
 import android.view.LayoutInflater
 import android.view.View
@@ -15,6 +14,7 @@ import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.RecyclerView
 import com.example.deviceinspectionapp.preferences.AppPreferences
 import com.example.deviceinspectionapp.utils.ExifUtils
+import com.example.deviceinspectionapp.utils.FsUtils
 import com.google.android.flexbox.FlexboxLayout
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.io.File
@@ -202,18 +202,12 @@ class StageViewHolder(
                 return it
             }
 
-            // Логика вычисления размера иконок
+            // Логика вычисления размера экрана
             val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-            val windowMetrics = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                windowManager.currentWindowMetrics
-            } else {
-                val display = windowManager.defaultDisplay
-                @Suppress("DEPRECATION")
-                display.getMetrics(DisplayMetrics())
-                return DisplayMetrics().widthPixels
-            }
-
-            val screenWidth = windowMetrics.bounds.width()
+            val displayMetrics = DisplayMetrics()
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay.getMetrics(displayMetrics)
+            val screenWidth = displayMetrics.widthPixels
 
             // Получаем количество иконок в строке из AppPreferences
             val iconsInRow = AppPreferences.getIconsInRow(context)
@@ -244,4 +238,5 @@ class StageViewHolder(
             return iconSize
         }
     }
+
 }

@@ -3,12 +3,10 @@ package com.example.deviceinspectionapp
 import PoverkaDTO
 import android.graphics.Bitmap
 import android.net.Uri
-import android.os.Build
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.LinearLayout
-import androidx.annotation.RequiresApi
 import androidx.recyclerview.widget.RecyclerView
 import com.example.deviceinspectionapp.utils.ExifUtils
 import java.io.File
@@ -52,7 +50,7 @@ class PoverkaAdapter(
                 }
                 .toSet()
                 .forEach {
-                    Log.d("onBindViewHolder_2", "stage $stageIdx обновление фото: ${it}")
+                    Log.d("onBindViewHolder_2", "stage $stageIdx обновление фото: $it")
                     holder.updateThumbnail(it)
                 }
         } else {
@@ -69,7 +67,6 @@ class PoverkaAdapter(
         return poverkaDTO.stages.size
     }
 
-    @RequiresApi(Build.VERSION_CODES.N)
     fun processPhotoEditEvent(stageIdx: Int, photoIdx: Int, editedPhotoUri: Uri) {
         val editedFileName = editedPhotoUri.path!!.substringAfterLast('/')
         val editedPhotoFile = File(context.photoDirectory, editedFileName)
@@ -92,7 +89,6 @@ class PoverkaAdapter(
     }
 
 
-    @RequiresApi(Build.VERSION_CODES.N)
     fun processPhotoTakenEvent(call: CameraCall) {
         val fileName = call.fileUri.path!!.substringAfterLast('/')
         val photoFile = File(context.photoDirectory, fileName)

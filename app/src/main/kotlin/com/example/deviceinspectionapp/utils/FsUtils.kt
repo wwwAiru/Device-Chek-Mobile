@@ -1,4 +1,4 @@
-package com.example.deviceinspectionapp
+package com.example.deviceinspectionapp.utils
 
 import android.content.Context
 import android.net.Uri
