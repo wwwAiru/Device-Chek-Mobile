@@ -6,25 +6,32 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
+    <!-- Верхняя панель с MaterialToolbar -->
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fitsSystemWindows="true"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:menu="@menu/menu_settings"
+            android:contentDescription="@string/settings_menu_description"
+            android:backgroundTint="@color/design_default_color_primary" />
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- Кнопка для начала новой поверки -->
     <Button
         android:id="@+id/btnStartInspection"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Начало новой поверки"
+        android:text="@string/btn_start_inspection"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/settings_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:contentDescription="@string/settings_menu_description"
-        android:src="@drawable/ic_menu"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_margin="16dp"
-        app:backgroundTint="@color/design_default_color_primary" />
+        app:layout_constraintTop_toBottomOf="@id/appBarLayout" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
