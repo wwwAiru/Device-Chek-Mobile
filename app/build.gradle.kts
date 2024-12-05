@@ -48,11 +48,11 @@ android {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.3")
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.serialization.core)
     // для переопределения ActivityResultContract
-    implementation ("androidx.activity:activity-ktx:1.9.3")
-    implementation ("androidx.fragment:fragment-ktx:1.8.5")
+    implementation (libs.androidx.activity.ktx)
+    implementation (libs.androidx.fragment.ktx)
     // Базовые зависимости Android
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -80,5 +80,6 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation (libs.leakcanary.android)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
