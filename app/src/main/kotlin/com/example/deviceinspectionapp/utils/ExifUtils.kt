@@ -4,7 +4,8 @@ import android.util.Log
 import androidx.exifinterface.media.ExifInterface
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 object ExifUtils {
 
