@@ -1,37 +1,53 @@
 package com.example.deviceinspectionapp
 
-import android.content.Context
 import android.util.Log
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 
-object Service {
+lateinit var mainService: Service
 
-    var settings: Settings? = null
+class Service(private val filesDir: File) {
 
-    fun loadSettings(context: Context) {
-        val settingsFile = File(context.filesDir, "settings/settings.json")
-        if (settingsFile.exists()) {
-            val jsonString = settingsFile.readText()
-            settings = Json.decodeFromString(Settings.serializer(), jsonString)
-            Log.i("Settings", "Настройки загружены")
-        }
+    lateinit var settings: Settings
 
+    init {
+        loadSettings()
     }
 
-    fun saveSettings(context: Context) {
-        val settingsFile = File(context.filesDir, "settings/settings.json")
-        val jsonString = Json.encodeToString(settings ?: Settings("defaultServer", "defaultLogin"))
+    // Загрузка настроек
+    fun loadSettings(): Settings {
+        val settingsFile = File(filesDir, "settings/settings.json")
+        return if (settingsFile.exists()) {
+            val jsonString = settingsFile.readText()
+            Json.decodeFromString(Settings.serializer(), jsonString).also {
+                Log.i("Settings", "Настройки загружены")
+                settings = it
+            }
+        } else {
+            // Если файла настроек нет, создаем дефолтные настройки
+            val defaultSettings = Settings(serverAddress = "192.168.1.0", login = "admin")
+            saveSettings(defaultSettings) // Сохраняем дефолтные настройки
+            settings = defaultSettings
+            defaultSettings
+        }
+    }
+
+    // Сохранение настроек
+    fun saveSettings(newSettings: Settings = settings) {
+        val settingsFile = File(filesDir, "settings/settings.json")
+        settingsFile.parentFile?.mkdirs() // Создаем директорию, если она не существует
+        val jsonString = Json.encodeToString(newSettings)
         settingsFile.writeText(jsonString)
         Log.i("Settings", "Настройки сохранены")
     }
-
 }
 
-
+// Класс для настроек
 @kotlinx.serialization.Serializable
 data class Settings(
+    @SerialName("server_address")
     val serverAddress: String,
     val login: String
 )
