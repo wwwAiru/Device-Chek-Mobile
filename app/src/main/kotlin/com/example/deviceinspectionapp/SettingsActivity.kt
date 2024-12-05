@@ -26,7 +26,7 @@ class SettingsActivity : AppCompatActivity() {
         btnSave = findViewById(R.id.btnSave)
         btnCancel = findViewById(R.id.btnCancel)
 
-        Service.settings?.let {
+        mainService.settings.let {
             etServerAddress.setText(it.serverAddress)
             etLogin.setText(it.login)
         }
@@ -50,8 +50,8 @@ class SettingsActivity : AppCompatActivity() {
 
             // Сохраняем настройки
             val newSettings = Settings(serverAddress, login)
-            Service.settings = newSettings
-            Service.saveSettings(this)
+            mainService.settings = newSettings
+            mainService.saveSettings()
             Toast.makeText(this, "Настройки сохранены", Toast.LENGTH_SHORT).show()
             finish()
         }
