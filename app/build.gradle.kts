@@ -69,8 +69,8 @@ dependencies {
 
     // Для работы с изображениями
     implementation(libs.flexbox)
-    implementation("androidx.exifinterface:exifinterface:1.3.6")
-    implementation("com.github.yalantis:ucrop:2.2.8")
+    implementation(libs.androidx.exifinterface)
+    implementation(libs.ucrop)
 
 
     // Тестовые зависимости
