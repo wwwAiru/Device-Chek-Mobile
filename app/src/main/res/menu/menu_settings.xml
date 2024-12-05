@@ -1,0 +1,14 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="com.example.deviceinspectionapp.MainActivity">
+
+    <item
+        android:id="@+id/toolbar_menu_action_settings"
+        android:title="@string/action_setting_title"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_upload"
+        android:title="@string/toolbar_menu_action_upload_title"
+        app:showAsAction="never" />
+</menu>
