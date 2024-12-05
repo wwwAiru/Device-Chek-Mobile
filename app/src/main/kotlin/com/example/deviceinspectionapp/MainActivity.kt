@@ -7,6 +7,8 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
+import android.view.Menu
+import android.view.MenuItem
 import android.widget.Button
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
@@ -14,7 +16,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.deviceinspectionapp.utils.TestData
-import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.appbar.MaterialToolbar
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -25,29 +27,58 @@ class MainActivity : AppCompatActivity() {
     private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var photoDirectory: File
     private lateinit var poverkaDTO: PoverkaDTO
+    private lateinit var toolbar: MaterialToolbar
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // Инициализация компонентов
         initializeComponents()
+
+        // Настройка UI
         setupUI()
     }
 
+    // Отображение меню
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.menu_settings, menu)
+        return true
+    }
+
+    // Обработка действий меню
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.toolbar_menu_action_settings -> {
+                startSettingsActivity()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    // Инициализация компонентов
     private fun initializeComponents() {
+        // Инициализация сервиса
+        mainService = Service(filesDir)
+        mainService.loadSettings()
         setupPermissionLauncher()
         setupPhotoDirectory()
-        setupSettingsDirectory()
-        Service.loadSettings(this)
         poverkaDTO = TestData.createTestInspectionData()
         cameraAppPackageName = findCameraApp()
 
         if (cameraAppPackageName == null) {
-            Toast.makeText(this,"Приложение камеры не найдено. Завершаем работу.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Приложение камеры не найдено. Завершаем работу.", Toast.LENGTH_LONG).show()
             finish()
         }
     }
 
+    // Настройка UI
     private fun setupUI() {
+        // Настройка Toolbar
+        toolbar = findViewById(R.id.toolbar)
+        setSupportActionBar(toolbar)
+        // кнопка Начало новой поверки
         val btnStartInspection: Button = findViewById(R.id.btnStartInspection)
         btnStartInspection.setOnClickListener {
             if (checkCameraPermission()) {
@@ -56,13 +87,9 @@ class MainActivity : AppCompatActivity() {
                 requestCameraPermission()
             }
         }
-
-        val buttonSettings: FloatingActionButton = findViewById(R.id.settings_button)
-        buttonSettings.setOnClickListener {
-            startSettingsActivity()
-        }
     }
 
+    // Настройка лаунчера для разрешений
     private fun setupPermissionLauncher() {
         permissionLauncher =
             registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -80,6 +107,7 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
+    // Настройка директории для фото
     private fun setupPhotoDirectory() {
         photoDirectory = File(filesDir, "images")
         if (!photoDirectory.exists() && !photoDirectory.mkdirs()) {
@@ -90,17 +118,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupSettingsDirectory() {
-        val settingsDir = File(filesDir, "settings")
-        if (!settingsDir.exists() && !settingsDir.mkdirs()) {
-            Toast.makeText(this, "Не удалось создать директорию 'settings', приложение закрыто.", Toast.LENGTH_LONG).show()
-            finish()
-        } else {
-            Log.d("Settings", "Директория 'settings' создана.")
-        }
-    }
-
-
+    // Поиск камеры
     private fun findCameraApp(): String? {
         return packageManager.queryIntentActivities(
             Intent(MediaStore.ACTION_IMAGE_CAPTURE),
@@ -116,14 +134,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Проверка разрешений на камеру
     private fun checkCameraPermission(): Boolean {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
     }
 
+    // Запрос на разрешение камеры
     private fun requestCameraPermission() {
         permissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
     }
 
+    // Запуск SettingsActivity
     private fun startSettingsActivity() {
         val intent = Intent(this, SettingsActivity::class.java)
         startActivity(intent)
