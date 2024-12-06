@@ -61,7 +61,6 @@ class MainActivity : AppCompatActivity() {
     private fun initializeComponents() {
         // Инициализация сервиса
         mainService = Service(filesDir)
-        mainService.loadSettings()
         setupPermissionLauncher()
         setupPhotoDirectory()
         poverkaDTO = TestData.createTestInspectionData()

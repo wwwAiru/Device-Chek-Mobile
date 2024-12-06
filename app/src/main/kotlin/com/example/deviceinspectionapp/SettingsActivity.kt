@@ -51,7 +51,6 @@ class SettingsActivity : AppCompatActivity() {
             // Сохраняем настройки
             val newSettings = Settings(serverAddress, login)
             mainService.settings = newSettings
-            mainService.saveSettings()
             Toast.makeText(this, "Настройки сохранены", Toast.LENGTH_SHORT).show()
             finish()
         }
