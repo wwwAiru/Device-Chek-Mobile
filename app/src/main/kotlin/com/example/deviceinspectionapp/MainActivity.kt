@@ -53,6 +53,10 @@ class MainActivity : AppCompatActivity() {
                 startSettingsActivity()
                 true
             }
+            R.id.action_upload -> {
+                uploadPhotos()
+                true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -167,5 +171,18 @@ class MainActivity : AppCompatActivity() {
             putExtra("photoDirectoryPath", photoDirectory.absolutePath)
         }
         startActivity(intent)
+    }
+
+    // Загрузка фото на сервер
+    private fun uploadPhotos() {
+        mainService.uploadAllPhotos(this, photoDirectory) { success ->
+            runOnUiThread {
+                if (success) {
+                    Toast.makeText(this, "Выгрузка фото завершена успешно", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this, "Ошибка при выгрузке фото", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 }

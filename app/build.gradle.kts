@@ -48,6 +48,13 @@ android {
 }
 
 dependencies {
+    //для взаимодействия с сервером
+    implementation ("io.ktor:ktor-client-core:2.3.3")
+    implementation ("io.ktor:ktor-client-cio:2.3.3")
+    implementation ("io.ktor:ktor-client-serialization:2.3.3")
+    implementation ("io.ktor:ktor-client-content-negotiation:2.3.3")
+    implementation ("io.ktor:ktor-serialization-kotlinx-json:2.3.3")
+
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.serialization.core)
     // для переопределения ActivityResultContract
