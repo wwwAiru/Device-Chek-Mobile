@@ -3,7 +3,6 @@ package com.example.deviceinspectionapp
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.os.Build
 import android.util.Log
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
@@ -16,15 +15,12 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 
 lateinit var mainService: Service
 
@@ -41,6 +37,14 @@ class Service(private val filesDir: File) {
             json()
         }
     }
+    val mutex = Mutex()
+    var uploadingError: String? = null
+    var hasFilesToUpload: Boolean = false
+
+    //mutex locked, uploadingError = null
+    //mutex locked, uploadingError != null
+    //mutex not locked, uploadingError = null
+    //mutex not locked, uploadingError != null
 
     init {
         loadSettings()
@@ -85,47 +89,63 @@ class Service(private val filesDir: File) {
         return response
     }
 
-    fun uploadAllPhotos(context: Context, photoDirectory: File, onComplete: (Boolean) -> Unit) {
+    /**
+     * invoked by timer or manually
+     */
+    fun uploadAllPhotos(context: Context, photoDirectory: File, updateUI: () -> Unit) {
         if (!isNetworkAvailable(context)) {
             Log.e("Service", "Нет подключения к интернету.")
-            onComplete(false)
+            uploadingError = "Нет подключения к интернету."
+            updateUI()
             return
         }
 
-        CoroutineScope(Dispatchers.IO).launch {
-            val photos = photoDirectory.listFiles() ?: emptyArray()
-            if (photos.isEmpty()) {
-                Log.i("Service", "Нет фотографий для загрузки.")
-                onComplete(true)
-                return@launch
-            }
+        try {
+            CoroutineScope(Dispatchers.IO).launch {
+                if (!mutex.tryLock()) {
+                    return@launch
+                }
 
-            val semaphore = Semaphore(3)
+                try {
+                    uploadingError = null
+                    //TODO: find files to upload (1 - collect local files, 2 - match with server files (taking into account date_created))
+                    var photos : List<File> = emptyList() //TODO
+                    //TODO hasFilesToUpload
+                    updateUI()
+                    while (!photos.isEmpty()) {
+//                        val photos = photoDirectory.listFiles() ?: emptyArray()
+//                        if (photos.isEmpty()) {
+//                            Log.i("Service", "Нет фотографий для загрузки.")
+//                            return@launch
+//                        }
 
-            val uploadTasks = photos.map { photo ->
-                async {
-                    semaphore.withPermit {
-                        try {
+                        photos.forEach { photo ->
                             val response = uploadPhoto(photo)
                             if (response.status.isSuccess()) {
                                 Log.i("Service", "Фото ${photo.name} успешно загружено.")
-                                true
                             } else {
-                                Log.e("Service", "Ошибка при загрузке фото ${photo.name}: ${response.status}")
-                                false
+                                Log.e(
+                                    "Service",
+                                    "${response.status.description} : Ошибка при загрузке фото ${photo.name}: ${response.status}"
+                                )
+                                throw RuntimeException("${response.status.description} : Ошибка при загрузке фото ${photo.name}: ${response.status}")
                             }
-                        } catch (e: Exception) {
-                            Log.e("Service", "Ошибка при загрузке фото ${photo.name}: ${e.message}")
-                            false
                         }
+                        //TODO: find files to upload (1 - collect local files, 2 - match with server files)
+                        photos = emptyList() //TODO
                     }
+                    hasFilesToUpload = false
+                } catch (e: Exception) {
+                    uploadingError = e.message
+                } finally {
+                    mutex.unlock()
+                    updateUI()
                 }
             }
-
-            val results = uploadTasks.awaitAll()
-            val allSuccessful = results.all { it }
-            onComplete(allSuccessful)
+        } catch (e: Exception) {
+            uploadingError = e.message
         }
+        updateUI()
     }
 
     private fun isNetworkAvailable(context: Context): Boolean {
