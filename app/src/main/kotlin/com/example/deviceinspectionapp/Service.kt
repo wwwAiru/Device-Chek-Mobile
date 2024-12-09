@@ -8,18 +8,17 @@ import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
-import io.ktor.client.request.forms.MultiPartFormDataContent
-import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.json
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 
 lateinit var mainService: Service
@@ -27,9 +26,9 @@ lateinit var mainService: Service
 class Service(private val filesDir: File) {
 
     var settings: Settings = Settings("127.0.0.1:8080", "user")
-        set(v) {
-            saveSettings(v)
-            field = v
+        set(value) {
+            saveSettings(value)
+            field = value
         }
 
     private val client = HttpClient(CIO) {
@@ -37,20 +36,29 @@ class Service(private val filesDir: File) {
             json()
         }
     }
-    val mutex = Mutex()
+
+    private val mutex = Mutex()
     var uploadingError: String? = null
     var hasFilesToUpload: Boolean = false
-
-    //mutex locked, uploadingError = null
-    //mutex locked, uploadingError != null
-    //mutex not locked, uploadingError = null
-    //mutex not locked, uploadingError != null
 
     init {
         loadSettings()
     }
 
-    // Загрузка настроек
+    private fun findFilesToUpload(photoDirectory: File): List<File> {
+        val files = photoDirectory.listFiles() ?: emptyArray()
+        return files.filter { it.extension in listOf("jpg", "jpeg") }
+    }
+
+    private fun isNetworkAvailable(context: Context): Boolean {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivityManager.activeNetwork ?: return false
+        val activeNetwork = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+    }
+
     private fun loadSettings() {
         val settingsFile = File(filesDir, "settings/settings.json")
         if (settingsFile.exists()) {
@@ -59,109 +67,90 @@ class Service(private val filesDir: File) {
                 Log.i("Settings", "Настройки загружены: $it")
             }
         } else {
-            // Просто сохраняем текущие настройки (по умолчанию они уже установлены)
             saveSettings(settings)
         }
     }
 
-    // Сохранение настроек
     private fun saveSettings(newSettings: Settings) {
         val settingsFile = File(filesDir, "settings/settings.json")
-        settingsFile.parentFile!!.mkdirs() // Уверены, что parentFile не null
-        val jsonString = Json.encodeToString(newSettings)
-        settingsFile.writeText(jsonString)
-        Log.i("Settings", "Настройки сохранены: $jsonString")
+        settingsFile.parentFile?.mkdirs()
+        settingsFile.writeText(Json.encodeToString(newSettings))
+        Log.i("Settings", "Настройки сохранены: $newSettings")
     }
 
-    // Метод для выгрузки фото на сервер
-    private suspend fun uploadPhoto(file: File): HttpResponse {
-        Log.i("Upload", "Uploading file: ${file.name}")
-        val response: HttpResponse = client.post("http://${settings.serverAddress}/upload") {
-            setBody(MultiPartFormDataContent(
-                formData {
-                    append("file", file.readBytes(), Headers.build {
-                        append(HttpHeaders.ContentDisposition, "filename=${file.name}")
-                    })
-                }
-            ))
+    private suspend fun uploadJson(jsonData: String): HttpResponse {
+        Log.i("Service", "Отправка JSON: $jsonData")
+        return client.post("http://${settings.serverAddress}/upload/json") {
+            contentType(ContentType.Application.Json)
+            setBody(jsonData)
         }
-        Log.i("UploadPhotoRes", "ответ сервера ${file.name}: ${response.status}")
-        return response
     }
 
-    /**
-     * invoked by timer or manually
-     */
-    fun uploadAllPhotos(context: Context, photoDirectory: File, updateUI: () -> Unit) {
+    private suspend fun uploadPhoto(photo: File, uuid: String): HttpResponse {
+        if (!photo.exists()) throw IllegalArgumentException("Файл ${photo.name} не существует.")
+        if (uuid.isBlank()) throw IllegalArgumentException("UUID не может быть пустым.")
+
+        Log.i("Service", "Отправка файла: ${photo.name} с UUID: $uuid")
+
+        return client.submitFormWithBinaryData(
+            url = "http://${settings.serverAddress}/upload/photo",
+            formData = formData {
+                append("uuid", uuid)
+                append("file", photo.readBytes(), Headers.build {
+                    append(HttpHeaders.ContentDisposition, "form-data; name=\"file\"; filename=\"${photo.name}\"")
+                    append(HttpHeaders.ContentType, "application/octet-stream")
+                })
+            }
+        )
+    }
+
+    suspend fun uploadAllPhotos(context: Context, jsonData: String, photoDirectory: File) {
         if (!isNetworkAvailable(context)) {
-            Log.e("Service", "Нет подключения к интернету.")
             uploadingError = "Нет подключения к интернету."
-            updateUI()
+            Log.e("Service", uploadingError!!)
             return
         }
 
-        try {
-            CoroutineScope(Dispatchers.IO).launch {
-                if (!mutex.tryLock()) {
-                    return@launch
-                }
+        mutex.withLock {
+            hasFilesToUpload = findFilesToUpload(photoDirectory).isNotEmpty()
 
-                try {
-                    uploadingError = null
-                    //TODO: find files to upload (1 - collect local files, 2 - match with server files (taking into account date_created))
-                    var photos : List<File> = emptyList() //TODO
-                    //TODO hasFilesToUpload
-                    updateUI()
-                    while (!photos.isEmpty()) {
-//                        val photos = photoDirectory.listFiles() ?: emptyArray()
-//                        if (photos.isEmpty()) {
-//                            Log.i("Service", "Нет фотографий для загрузки.")
-//                            return@launch
-//                        }
-
-                        photos.forEach { photo ->
-                            val response = uploadPhoto(photo)
-                            if (response.status.isSuccess()) {
-                                Log.i("Service", "Фото ${photo.name} успешно загружено.")
-                            } else {
-                                Log.e(
-                                    "Service",
-                                    "${response.status.description} : Ошибка при загрузке фото ${photo.name}: ${response.status}"
-                                )
-                                throw RuntimeException("${response.status.description} : Ошибка при загрузке фото ${photo.name}: ${response.status}")
-                            }
-                        }
-                        //TODO: find files to upload (1 - collect local files, 2 - match with server files)
-                        photos = emptyList() //TODO
-                    }
-                    hasFilesToUpload = false
-                } catch (e: Exception) {
-                    uploadingError = e.message
-                } finally {
-                    mutex.unlock()
-                    updateUI()
-                }
+            if (!hasFilesToUpload) {
+                uploadingError = "Нет фотографий для загрузки."
+                Log.e("Service", uploadingError!!)
+                return
             }
-        } catch (e: Exception) {
-            uploadingError = e.message
-        }
-        updateUI()
-    }
 
-    private fun isNetworkAvailable(context: Context): Boolean {
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = connectivityManager.activeNetwork ?: return false
-        val activeNetwork = connectivityManager.getNetworkCapabilities(network) ?: return false
-        return when {
-            activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> true
-            activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> true
-            activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> true
-            else -> false
+            try {
+                // Загружаем JSON
+                val jsonResponse = uploadJson(jsonData)
+                if (!jsonResponse.status.isSuccess()) {
+                    uploadingError = "Ошибка при загрузке JSON: ${jsonResponse.status}"
+                    Log.e("Service", uploadingError!!)
+                    return
+                }
+
+                // Извлекаем UUID из JSON
+                val uuid = Json.decodeFromString<JsonObject>(jsonData)["uuid"]?.jsonPrimitive?.content ?: return
+
+                // Загружаем фотографии
+                for (photo in findFilesToUpload(photoDirectory)) {
+                    val photoResponse = uploadPhoto(photo, uuid)
+                    if (!photoResponse.status.isSuccess()) {
+                        uploadingError = "Ошибка при загрузке фото ${photo.name}: ${photoResponse.status}"
+                        Log.e("Service", uploadingError!!)
+                        return
+                    }
+                }
+
+                Log.i("Service", "Загрузка завершена.")
+            } catch (e: Exception) {
+                uploadingError = "Ошибка при загрузке: ${e.localizedMessage}"
+                Log.e("Service", uploadingError!!)
+            }
         }
     }
 }
 
-// Класс для настроек
 @Serializable
 data class Settings(
     val serverAddress: String? = null,
