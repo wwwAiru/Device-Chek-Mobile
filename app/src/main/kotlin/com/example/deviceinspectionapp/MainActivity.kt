@@ -17,6 +17,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.deviceinspectionapp.utils.TestData
 import com.google.android.material.appbar.MaterialToolbar
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -174,13 +177,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Загрузка фото на сервер
+
     private fun uploadPhotos() {
-        mainService.uploadAllPhotos(this, photoDirectory) { success ->
+        // Создание корутины для вызова suspend-функции
+        CoroutineScope(Dispatchers.Main).launch {
+            mainService.uploadAllPhotos(this@MainActivity, Json.encodeToString(poverkaDTO), photoDirectory)
+
+            // После завершения загрузки проверяем результат
             runOnUiThread {
-                if (success) {
-                    Toast.makeText(this, "Выгрузка фото завершена успешно", Toast.LENGTH_LONG).show()
+                if (mainService.uploadingError == null) {
+                    // Если ошибок нет, выводим сообщение об успешной выгрузке
+                    Toast.makeText(this@MainActivity, "Выгрузка фото завершена успешно", Toast.LENGTH_LONG).show()
                 } else {
-                    Toast.makeText(this, "Ошибка при выгрузке фото", Toast.LENGTH_LONG).show()
+                    // Если произошла ошибка, выводим ее
+                    Toast.makeText(this@MainActivity, "Ошибка при выгрузке фото: ${mainService.uploadingError}", Toast.LENGTH_LONG).show()
                 }
             }
         }
