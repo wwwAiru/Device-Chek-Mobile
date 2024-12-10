@@ -150,16 +150,12 @@ class Service(private val filesDir: File) {
             hasFilesToUpload = true
 
             while (hasFilesToUpload) {
-                val localFileMetadata = localFiles.associateBy(
-                    { extractUuidFromFile(it).toString() },
-                    { FileMetadata(it.name, it.lastModified()) }
-                )
+                val localFileMetadata = localFiles.map { FileMetadata(it.name, it.lastModified()) }
 
-                val serverFileMetadata = getServerFileList(localFileMetadata.keys)
+                val serverFileMetadata = getServerFileList(localFileMetadata.map { extractUuidFromFile(File(it.fileName)).toString() }.toSet())
 
                 val filesToUpload = localFiles.filter { file ->
-                    val uuidFromName = extractUuidFromFile(file).toString()
-                    val serverMetadata = serverFileMetadata[uuidFromName]
+                    val serverMetadata = serverFileMetadata.find { it.fileName == file.name }
                     serverMetadata == null || file.lastModified() > serverMetadata.lastModified
                 }
 
@@ -190,7 +186,7 @@ class Service(private val filesDir: File) {
         }
     }
 
-    private suspend fun getServerFileList(fileUUIDs: Set<String>): Map<String, FileMetadata> {
+    private suspend fun getServerFileList(fileUUIDs: Set<String>): List<FileMetadata> {
         val response: HttpResponse = client.post("http://${settings.serverAddress}/files") {
             contentType(ContentType.Application.Json)
             setBody(Json.encodeToString(fileUUIDs))
@@ -201,8 +197,7 @@ class Service(private val filesDir: File) {
             throw IllegalStateException("Ошибка при получении списка файлов с сервера: ${response.status}")
         }
 
-        val serverFiles: List<FileMetadata> = Json.decodeFromString(response.bodyAsText())
-        return serverFiles.associateBy { it.fileName.substringBefore("_") }
+        return Json.decodeFromString(response.bodyAsText())
     }
 }
 
