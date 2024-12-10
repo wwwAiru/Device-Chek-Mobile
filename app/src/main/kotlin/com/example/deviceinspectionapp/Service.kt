@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
+import com.example.deviceinspectionapp.dto.FileMetadata
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -13,13 +14,13 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
+import java.util.UUID
 
 lateinit var mainService: Service
 
@@ -45,9 +46,14 @@ class Service(private val filesDir: File) {
         loadSettings()
     }
 
-    private fun findFilesToUpload(photoDirectory: File): List<File> {
-        val files = photoDirectory.listFiles() ?: emptyArray()
-        return files.filter { it.extension in listOf("jpg", "jpeg") }
+    private fun extractUuidFromFile(file: File): UUID {
+        val regex = "(?:thumb_)?([a-f0-9\\-]{36})".toRegex()
+        val matchResult = regex.find(file.name)
+        return if (matchResult != null) {
+            UUID.fromString(matchResult.groupValues[1])
+        } else {
+            throw IllegalArgumentException("Не удалось извлечь UUID из имени файла: ${file.name}")
+        }
     }
 
     private fun isNetworkAvailable(context: Context): Boolean {
@@ -87,17 +93,16 @@ class Service(private val filesDir: File) {
     }
 
     private suspend fun uploadPhoto(photo: File, uuid: String): HttpResponse {
-        if (!photo.exists()) throw IllegalArgumentException("Файл ${photo.name} не существует.")
-        if (uuid.isBlank()) throw IllegalArgumentException("UUID не может быть пустым.")
-
         Log.i("Service", "Отправка файла: ${photo.name} с UUID: $uuid")
-
         return client.submitFormWithBinaryData(
             url = "http://${settings.serverAddress}/upload/photo",
             formData = formData {
                 append("uuid", uuid)
                 append("file", photo.readBytes(), Headers.build {
-                    append(HttpHeaders.ContentDisposition, "form-data; name=\"file\"; filename=\"${photo.name}\"")
+                    append(
+                        HttpHeaders.ContentDisposition,
+                        "form-data; name=\"file\"; filename=\"${photo.name}\""
+                    )
                     append(HttpHeaders.ContentType, "application/octet-stream")
                 })
             }
@@ -111,43 +116,93 @@ class Service(private val filesDir: File) {
             return
         }
 
-        mutex.withLock {
-            hasFilesToUpload = findFilesToUpload(photoDirectory).isNotEmpty()
+        if (!mutex.tryLock()) {
+            Log.i("Service", "Загрузка уже выполняется.")
+            return
+        }
 
-            if (!hasFilesToUpload) {
+        try {
+            val localFiles = photoDirectory.listFiles()
+                ?.filter { it.extension in listOf("jpg", "jpeg") }
+                ?: emptyList()
+
+            if (localFiles.isEmpty()) {
                 uploadingError = "Нет фотографий для загрузки."
+                Log.i("Service", uploadingError!!)
+                hasFilesToUpload = false
+                return
+            }
+
+            val jsonResponse = uploadJson(jsonData)
+            if (!jsonResponse.status.isSuccess()) {
+                uploadingError = "Ошибка при загрузке JSON: ${jsonResponse.status}"
                 Log.e("Service", uploadingError!!)
                 return
             }
 
-            try {
-                // Загружаем JSON
-                val jsonResponse = uploadJson(jsonData)
-                if (!jsonResponse.status.isSuccess()) {
-                    uploadingError = "Ошибка при загрузке JSON: ${jsonResponse.status}"
-                    Log.e("Service", uploadingError!!)
-                    return
+            val uuid = Json.decodeFromString<JsonObject>(jsonData)["uuid"]?.jsonPrimitive?.content
+            if (uuid.isNullOrEmpty()) {
+                uploadingError = "Ошибка: UUID не найден в JSON."
+                Log.e("Service", uploadingError!!)
+                return
+            }
+
+            hasFilesToUpload = true
+
+            while (hasFilesToUpload) {
+                val localFileMetadata = localFiles.associateBy(
+                    { extractUuidFromFile(it).toString() },
+                    { FileMetadata(it.name, it.lastModified()) }
+                )
+
+                val serverFileMetadata = getServerFileList(localFileMetadata.keys)
+
+                val filesToUpload = localFiles.filter { file ->
+                    val uuidFromName = extractUuidFromFile(file).toString()
+                    val serverMetadata = serverFileMetadata[uuidFromName]
+                    serverMetadata == null || file.lastModified() > serverMetadata.lastModified
                 }
 
-                // Извлекаем UUID из JSON
-                val uuid = Json.decodeFromString<JsonObject>(jsonData)["uuid"]?.jsonPrimitive?.content ?: return
+                if (filesToUpload.isEmpty()) {
+                    Log.i("Service", "Все файлы загружены.")
+                    hasFilesToUpload = false
+                    break
+                }
 
-                // Загружаем фотографии
-                for (photo in findFilesToUpload(photoDirectory)) {
-                    val photoResponse = uploadPhoto(photo, uuid)
-                    if (!photoResponse.status.isSuccess()) {
-                        uploadingError = "Ошибка при загрузке фото ${photo.name}: ${photoResponse.status}"
-                        Log.e("Service", uploadingError!!)
-                        return
+                for (file in filesToUpload) {
+                    try {
+                        val response = uploadPhoto(file, uuid)
+                        if (response.status.isSuccess()) {
+                            Log.i("Service", "Файл ${file.name} успешно загружен.")
+                        } else {
+                            Log.e("Service", "Ошибка загрузки файла ${file.name}: ${response.status}")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("Service", "Ошибка при загрузке файла ${file.name}: ${e.localizedMessage}")
                     }
                 }
-
-                Log.i("Service", "Загрузка завершена.")
-            } catch (e: Exception) {
-                uploadingError = "Ошибка при загрузке: ${e.localizedMessage}"
-                Log.e("Service", uploadingError!!)
             }
+        } catch (e: Exception) {
+            uploadingError = "Ошибка при загрузке: ${e.localizedMessage}"
+            Log.e("Service", uploadingError!!)
+        } finally {
+            mutex.unlock()
         }
+    }
+
+    private suspend fun getServerFileList(fileUUIDs: Set<String>): Map<String, FileMetadata> {
+        val response: HttpResponse = client.post("http://${settings.serverAddress}/files") {
+            contentType(ContentType.Application.Json)
+            setBody(Json.encodeToString(fileUUIDs))
+        }
+
+        if (!response.status.isSuccess()) {
+            Log.e("Service", "Ошибка ответа сервера: ${response.status}")
+            throw IllegalStateException("Ошибка при получении списка файлов с сервера: ${response.status}")
+        }
+
+        val serverFiles: List<FileMetadata> = Json.decodeFromString(response.bodyAsText())
+        return serverFiles.associateBy { it.fileName.substringBefore("_") }
     }
 }
 
