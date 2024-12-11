@@ -185,12 +185,8 @@ class MainActivity : AppCompatActivity() {
 
             // После завершения загрузки проверяем результат
             runOnUiThread {
-                if (mainService.uploadingError == null) {
-                    // Если ошибок нет, выводим сообщение об успешной выгрузке
-                    Toast.makeText(this@MainActivity, "Выгрузка фото завершена успешно", Toast.LENGTH_LONG).show()
-                } else {
-                    // Если произошла ошибка, выводим ее
-                    Toast.makeText(this@MainActivity, "Ошибка при выгрузке фото: ${mainService.uploadingError}", Toast.LENGTH_LONG).show()
+                if (!mainService.uploadingMessage.isNullOrEmpty()) {
+                    Toast.makeText(this@MainActivity, mainService.uploadingMessage, Toast.LENGTH_LONG).show()
                 }
             }
         }
