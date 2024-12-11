@@ -5,6 +5,8 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -61,9 +63,25 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+
     private fun testServerConnection(serverAddress: String) {
-        Toast.makeText(this, "Пингуется адрес сервера := $serverAddress", Toast.LENGTH_SHORT).show()
+        etServerAddress.setTextColor(getColor(R.color.neutral)) // Сбрасываем цвет в нейтральный
+        etServerAddress.clearFocus()
+
+        mainService.settings = mainService.settings.copy(serverAddress = serverAddress)
+
+        lifecycleScope.launch {
+            val isConnected = mainService.checkServerConnection()
+            if (isConnected) {
+                etServerAddress.setTextColor(getColor(R.color.success)) // Зеленый цвет
+                Toast.makeText(this@SettingsActivity, "Соединение успешно!", Toast.LENGTH_SHORT).show()
+            } else {
+                etServerAddress.setTextColor(getColor(R.color.error)) // Красный цвет
+                Toast.makeText(this@SettingsActivity, "Ошибка соединения!", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
+
 
     private fun testLogin(login: String) {
         Toast.makeText(this, "Тест логина := $login", Toast.LENGTH_SHORT).show()
