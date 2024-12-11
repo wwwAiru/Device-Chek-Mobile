@@ -5,15 +5,26 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
 import com.example.deviceinspectionapp.dto.FileMetadata
-import io.ktor.client.*
-import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.request.*
-import io.ktor.client.request.forms.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.submitFormWithBinaryData
+import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -26,7 +37,7 @@ lateinit var mainService: Service
 
 class Service(private val filesDir: File) {
 
-    var settings: Settings = Settings("127.0.0.1:8080", "user")
+    var settings: Settings = Settings("192.168.0.118:8080", "user")
         set(value) {
             saveSettings(value)
             field = value
@@ -36,11 +47,15 @@ class Service(private val filesDir: File) {
         install(ContentNegotiation) {
             json()
         }
+        install(HttpTimeout) {
+            requestTimeoutMillis = 1000
+        }
     }
 
     private val mutex = Mutex()
-    var uploadingError: String? = null
+    var uploadingMessage: String? = null
     var hasFilesToUpload: Boolean = false
+    private var fileListEmpty: Boolean = false
 
     init {
         loadSettings()
@@ -109,59 +124,77 @@ class Service(private val filesDir: File) {
         )
     }
 
+    suspend fun checkServerConnection(): Boolean {
+        return try {
+            val response: HttpResponse = client.get("http://${settings.serverAddress}/ping")
+            response.status.isSuccess()
+        } catch (e: Exception) {
+            Log.e("Service", "Ошибка соединения с сервером: ${e.localizedMessage}")
+            withContext(Dispatchers.Main) {
+            }
+            false
+        }
+    }
+
     suspend fun uploadAllPhotos(context: Context, jsonData: String, photoDirectory: File) {
+        Log.i("Service", "Начало метода uploadAllPhotos")
+
+        // Проверка наличия сети
         if (!isNetworkAvailable(context)) {
-            uploadingError = "Нет подключения к интернету."
-            Log.e("Service", uploadingError!!)
+            uploadingMessage = "Нет подключения к интернету."
+            Log.e("Service", "Нет подключения к интернету. Завершение метода.")
             return
         }
 
+        // Проверка, не выполняется ли уже загрузка
         if (!mutex.tryLock()) {
-            Log.i("Service", "Загрузка уже выполняется.")
+            Log.i("Service", "Загрузка уже выполняется. Завершение метода.")
             return
         }
 
         try {
+            // Проверка наличия фотографий
             val localFiles = photoDirectory.listFiles()
                 ?.filter { it.extension in listOf("jpg", "jpeg") }
                 ?: emptyList()
 
             if (localFiles.isEmpty()) {
-                uploadingError = "Нет фотографий для загрузки."
-                Log.i("Service", uploadingError!!)
-                hasFilesToUpload = false
+                fileListEmpty = true
+                uploadingMessage = "Нет фотографий для выгрузки."
+                Log.i("Service", "Нет фотографий для выгрузки. Завершение метода.")
                 return
             }
 
+            fileListEmpty = false
+            uploadingMessage = null
+
+            Log.i("Service", "Файлы найдены: ${localFiles.size}. Начинаем отправку JSON.")
+
+            // Загружаем JSON
             val jsonResponse = uploadJson(jsonData)
             if (!jsonResponse.status.isSuccess()) {
-                uploadingError = "Ошибка при загрузке JSON: ${jsonResponse.status}"
-                Log.e("Service", uploadingError!!)
+                Log.e("Service", "Ошибка при отправке JSON: ${jsonResponse.status}")
                 return
             }
 
+            // Получаем UUID из JSON
             val uuid = Json.decodeFromString<JsonObject>(jsonData)["uuid"]?.jsonPrimitive?.content
             if (uuid.isNullOrEmpty()) {
-                uploadingError = "Ошибка: UUID не найден в JSON."
-                Log.e("Service", uploadingError!!)
+                Log.e("Service", "UUID не найден в JSON. Завершение метода.")
                 return
             }
 
-            hasFilesToUpload = true
-
-            while (hasFilesToUpload) {
-                val localFileMetadata = localFiles.map { FileMetadata(it.name, it.lastModified()) }
-
-                val serverFileMetadata = getServerFileList(localFileMetadata.map { extractUuidFromFile(File(it.fileName)).toString() }.toSet())
-
+            do {
                 val filesToUpload = localFiles.filter { file ->
-                    val serverMetadata = serverFileMetadata.find { it.fileName == file.name }
-                    serverMetadata == null || file.lastModified() > serverMetadata.lastModified
+                    val serverFileMetadata = getServerFileList(
+                        setOf(extractUuidFromFile(file).toString())
+                    ).find { it.fileName == file.name }
+                    serverFileMetadata == null || file.lastModified() > serverFileMetadata.lastModified
                 }
 
                 if (filesToUpload.isEmpty()) {
-                    Log.i("Service", "Все файлы загружены.")
-                    hasFilesToUpload = false
+                    Log.i("Service", "Все фото отправлены break")
+                    uploadingMessage = "Все фото отправлены"
                     break
                 }
 
@@ -177,16 +210,18 @@ class Service(private val filesDir: File) {
                         Log.e("Service", "Ошибка при загрузке файла ${file.name}: ${e.localizedMessage}")
                     }
                 }
-            }
+            } while (true)
+
         } catch (e: Exception) {
-            uploadingError = "Ошибка при загрузке: ${e.localizedMessage}"
-            Log.e("Service", uploadingError!!)
+            Log.e("Service", "Ошибка при выполнении метода: ${e.localizedMessage}")
         } finally {
-            mutex.unlock()
+            Log.i("Service", "Освобождаем мьютекс.")
+            mutex.unlock() // Освобождаем мьютекс
         }
+        Log.d("Service", "Метод uploadAllPhotos завершён.")
     }
 
-    private suspend fun getServerFileList(fileUUIDs: Set<String>): List<FileMetadata> {
+    private suspend fun getServerFileList(fileUUIDs: Set<String>): Set<FileMetadata> {
         val response: HttpResponse = client.post("http://${settings.serverAddress}/files") {
             contentType(ContentType.Application.Json)
             setBody(Json.encodeToString(fileUUIDs))
