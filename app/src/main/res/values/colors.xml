@@ -11,4 +11,7 @@
     <color name="colorPrimary">#6200EE</color> <!-- Цвет основной темы -->
     <color name="colorPrimaryDark">#3700B3</color> <!-- Темный цвет основной темы -->
     <color name="colorAccent">#03DAC5</color> <!-- Цвет акцента -->
+    <color name="neutral">#FF000000</color> <!-- Черный -->
+    <color name="success">#FF00FF00</color> <!-- Зеленый -->
+    <color name="error">#FFFF0000</color> <!-- Красный -->
 </resources>
