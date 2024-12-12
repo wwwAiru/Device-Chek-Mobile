@@ -27,7 +27,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 
-class MainActivity : AppCompatActivity(), UploadProgressListener {
+class MainActivity : AppCompatActivity(), ProgressListener, UploadStateListener {
 
     private var cameraAppPackageName: String? = null
     private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
@@ -169,6 +169,7 @@ class MainActivity : AppCompatActivity(), UploadProgressListener {
                 this@MainActivity,
                 Json.encodeToString(poverkaDTO),
                 photoDirectory,
+                this@MainActivity,
                 this@MainActivity
             )
             runOnUiThread {
@@ -179,15 +180,24 @@ class MainActivity : AppCompatActivity(), UploadProgressListener {
         }
     }
 
-    override fun updateProgress(progress: Int, state: UploadState) {
-        updateProgressUI(progress, state)
+    override fun updateProgress(progress: Int) {
+        Log.d("ProgressBar", "Обновление прогресса: $progress")
+
+        if (progressBar.visibility == View.GONE) {
+            progressBar.visibility = View.VISIBLE
+            Log.d("ProgressBar", "Прогресс-бар стал видимым")
+        }
+
+        progressBar.progress = progress
+
+        if (progress >= 100) {
+            progressBar.visibility = View.GONE
+            Log.d("ProgressBar", "Прогресс-бар скрыт, загрузка завершена")
+        }
     }
 
-    private fun updateProgressUI(progress: Int, state: UploadState) {
+    override fun updateState(state: UploadState) {
         runOnUiThread {
-            progressBar.progress = progress
-            progressBar.visibility = if (progress < 100) View.VISIBLE else View.GONE
-
             when (state) {
                 UploadState.DEFAULT -> cloudIcon.setImageResource(R.drawable.ic_cloud_default)
                 UploadState.UPLOADING -> cloudIcon.setImageResource(R.drawable.ic_cloud_uploading)
@@ -207,6 +217,10 @@ enum class UploadState {
     ERROR
 }
 
-interface UploadProgressListener {
-    fun updateProgress(progress: Int, state: UploadState)
+interface ProgressListener {
+    fun updateProgress(progress: Int)
+}
+
+interface UploadStateListener {
+    fun updateState(state: UploadState)
 }
