@@ -9,7 +9,10 @@ import android.provider.MediaStore
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.widget.Button
+import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,32 +27,29 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), UploadProgressListener {
 
     private var cameraAppPackageName: String? = null
     private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var photoDirectory: File
     private lateinit var poverkaDTO: PoverkaDTO
     private lateinit var toolbar: MaterialToolbar
+    private lateinit var progressBar: ProgressBar
+    private lateinit var cloudIcon: ImageView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Инициализация компонентов
         initializeComponents()
-
-        // Настройка UI
         setupUI()
     }
 
-    // Отображение меню
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.menu_settings, menu)
         return true
     }
 
-    // Обработка действий меню
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.toolbar_menu_action_settings -> {
@@ -64,9 +64,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Инициализация компонентов
     private fun initializeComponents() {
-        // Инициализация сервиса
         mainService = Service(filesDir)
         setupPermissionLauncher()
         setupPhotoDirectory()
@@ -79,12 +77,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Настройка UI
     private fun setupUI() {
-        // Настройка Toolbar
         toolbar = findViewById(R.id.toolbar)
         setSupportActionBar(toolbar)
-        // кнопка Начало новой поверки
+        progressBar = findViewById(R.id.progressBarHorizontal)
+        cloudIcon = findViewById(R.id.cloudIcon)
         val btnStartInspection: Button = findViewById(R.id.btnStartInspection)
         btnStartInspection.setOnClickListener {
             if (checkCameraPermission()) {
@@ -95,7 +92,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Настройка лаунчера для разрешений
     private fun setupPermissionLauncher() {
         permissionLauncher =
             registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -105,15 +101,10 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     "Разрешение на камеру не предоставлено."
                 }
-                Toast.makeText(
-                    this,
-                    message,
-                    if (isCameraPermissionGranted) Toast.LENGTH_SHORT else Toast.LENGTH_LONG
-                ).show()
+                Toast.makeText(this, message, if (isCameraPermissionGranted) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
             }
     }
 
-    // Настройка директории для фото
     private fun setupPhotoDirectory() {
         photoDirectory = File(filesDir, "images")
         if (!photoDirectory.exists() && !photoDirectory.mkdirs()) {
@@ -124,7 +115,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Поиск камеры
     private fun findCameraApp(): String? {
         return packageManager.queryIntentActivities(
             Intent(MediaStore.ACTION_IMAGE_CAPTURE),
@@ -140,17 +130,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Проверка разрешений на камеру
     private fun checkCameraPermission(): Boolean {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
     }
 
-    // Запрос на разрешение камеры
     private fun requestCameraPermission() {
         permissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
     }
 
-    // Запуск SettingsActivity
     private fun startSettingsActivity() {
         val intent = Intent(this, SettingsActivity::class.java)
         startActivity(intent)
@@ -176,14 +163,14 @@ class MainActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
-    // Загрузка фото на сервер
-
     private fun uploadPhotos() {
-        // Создание корутины для вызова suspend-функции
         CoroutineScope(Dispatchers.Main).launch {
-            mainService.uploadAllPhotos(this@MainActivity, Json.encodeToString(poverkaDTO), photoDirectory)
-
-            // После завершения загрузки проверяем результат
+            mainService.uploadAllPhotos(
+                this@MainActivity,
+                Json.encodeToString(poverkaDTO),
+                photoDirectory,
+                this@MainActivity
+            )
             runOnUiThread {
                 if (!mainService.uploadingMessage.isNullOrEmpty()) {
                     Toast.makeText(this@MainActivity, mainService.uploadingMessage, Toast.LENGTH_LONG).show()
@@ -191,4 +178,35 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    override fun updateProgress(progress: Int, state: UploadState) {
+        updateProgressUI(progress, state)
+    }
+
+    private fun updateProgressUI(progress: Int, state: UploadState) {
+        runOnUiThread {
+            progressBar.progress = progress
+            progressBar.visibility = if (progress < 100) View.VISIBLE else View.GONE
+
+            when (state) {
+                UploadState.DEFAULT -> cloudIcon.setImageResource(R.drawable.ic_cloud_default)
+                UploadState.UPLOADING -> cloudIcon.setImageResource(R.drawable.ic_cloud_uploading)
+                UploadState.SUCCESS -> cloudIcon.setImageResource(R.drawable.ic_cloud_success)
+                UploadState.ERROR -> cloudIcon.setImageResource(R.drawable.ic_cloud_error)
+                UploadState.PENDING -> cloudIcon.setImageResource(R.drawable.ic_cloud_pending)
+            }
+        }
+    }
+}
+
+enum class UploadState {
+    DEFAULT,
+    PENDING,
+    UPLOADING,
+    SUCCESS,
+    ERROR
+}
+
+interface UploadProgressListener {
+    fun updateProgress(progress: Int, state: UploadState)
 }
