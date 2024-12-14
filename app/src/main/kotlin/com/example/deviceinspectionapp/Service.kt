@@ -146,7 +146,7 @@ class Service(private val filesDir: File) {
         var uploadedBytes: Long = 0
         var totalBytes: Long = 0
         val maxRetries = 5 // Максимальное количество попыток
-        val initialDelay = 1000L // Начальная задержка в миллисекундах
+        val initialDelay = 500L // Начальная задержка в миллисекундах
 
         if (!isNetworkAvailable(context)) {
             uploadingMessage = "Нет подключения к интернету."
@@ -168,7 +168,6 @@ class Service(private val filesDir: File) {
             if (localFiles.isEmpty()) {
                 uploadingMessage = "Нет фотографий для выгрузки."
                 Log.i("Service", "Нет фотографий для выгрузки. Завершение метода.")
-                updateState(UploadState.DEFAULT) // Обновляем состояние
                 return
             }
 
@@ -204,7 +203,6 @@ class Service(private val filesDir: File) {
             if (filesToUpload.isEmpty()) {
                 uploadingMessage = "Все файлы уже загружены и актуальны."
                 Log.i("Service", "Все файлы уже загружены и актуальны. Завершение метода.")
-                updateState(UploadState.DEFAULT) // Обновляем состояние
                 return
             }
 
