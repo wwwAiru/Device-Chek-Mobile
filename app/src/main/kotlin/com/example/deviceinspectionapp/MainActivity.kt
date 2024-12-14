@@ -2,6 +2,7 @@ package com.example.deviceinspectionapp
 
 import PoverkaDTO
 import android.Manifest
+import android.app.Application
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -18,6 +19,12 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
 import com.example.deviceinspectionapp.utils.TestData
 import com.google.android.material.appbar.MaterialToolbar
 import kotlinx.coroutines.CoroutineScope
@@ -36,6 +43,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var toolbar: MaterialToolbar
     private lateinit var progressBar: ProgressBar
     private lateinit var cloudIcon: ImageView
+    private lateinit var sharedViewModel: SharedViewModel
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,6 +79,11 @@ class MainActivity : AppCompatActivity() {
         setupPhotoDirectory()
         poverkaDTO = TestData.createTestInspectionData()
         cameraAppPackageName = findCameraApp()
+        sharedViewModel = ViewModelProvider(AppViewModelStoreOwner)[SharedViewModel::class.java]
+        sharedViewModel.uploadState.observe(this) { state ->
+            Log.d("MainActivity", "UploadState изменился: $state")
+            updateState(state)
+        }
 
         if (cameraAppPackageName == null) {
             Toast.makeText(this, "Приложение камеры не найдено. Завершаем работу.", Toast.LENGTH_LONG).show()
@@ -216,3 +230,12 @@ enum class UploadState {
     SUCCESS,
     ERROR
 }
+
+class SharedViewModel : ViewModel() {
+    val uploadState = MutableLiveData<UploadState>()
+}
+
+object AppViewModelStoreOwner : ViewModelStoreOwner {
+    override val viewModelStore = ViewModelStore()
+}
+

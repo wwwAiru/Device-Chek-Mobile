@@ -18,7 +18,8 @@ import java.io.FileOutputStream
 
 class PoverkaAdapter(
     private val context: DeviceCheckActivity,
-    private val poverkaDTO: PoverkaDTO
+    private val poverkaDTO: PoverkaDTO,
+    private val viewModel: SharedViewModel
 ) : RecyclerView.Adapter<StageViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): StageViewHolder {
@@ -83,9 +84,10 @@ class PoverkaAdapter(
         ExifUtils.updateExifTimestamp(editedPhotoFile)
         val exifDataAfterEdit = ExifUtils.readExifData(editedPhotoFile)
         ExifUtils.logExifData("EXIF AFTER", exifDataAfterEdit)
-
         // Уведомляем адаптер об изменениях конкретного элемента
         notifyItemChanged(stageIdx, UpdateEvent.PhotoUpdate(photoIdx))
+        // обновление статуса в mainActivity
+        viewModel.uploadState.value = UploadState.PENDING
     }
 
 
@@ -100,6 +102,8 @@ class PoverkaAdapter(
             thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
         }
         notifyItemChanged(call.stageIdx, UpdateEvent.PhotoUpdate(call.photoIdx))
+        // обновление статуса в mainActivity
+        viewModel.uploadState.value = UploadState.PENDING
     }
 }
 

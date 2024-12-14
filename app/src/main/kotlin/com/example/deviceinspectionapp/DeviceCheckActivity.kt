@@ -6,6 +6,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.serialization.json.Json
@@ -15,6 +16,7 @@ class DeviceCheckActivity : AppCompatActivity() {
 
     private lateinit var poverkaDTO: PoverkaDTO
     private lateinit var poverkaAdapter: PoverkaAdapter
+    private lateinit var sharedViewModel: SharedViewModel
 
     lateinit var photoDirectory: File
     lateinit var takePictureLauncher: ActivityResultLauncher<CameraCall>
@@ -29,7 +31,7 @@ class DeviceCheckActivity : AppCompatActivity() {
         val jsonData = intent.getStringExtra("jsonData")
         val photoDirectoryPath = intent.getStringExtra("photoDirectoryPath")
 
-        photoDirectory = File(photoDirectoryPath)
+        photoDirectory = File(photoDirectoryPath!!)
 
         poverkaDTO = Json.decodeFromString(jsonData!!)
 
@@ -37,8 +39,10 @@ class DeviceCheckActivity : AppCompatActivity() {
         val recyclerView: RecyclerView = findViewById(R.id.recyclerViewStages)
         recyclerView.layoutManager = LinearLayoutManager(this)
 
+        // создаем вью модель для обновления состояния в mainActivity
+        sharedViewModel = ViewModelProvider(AppViewModelStoreOwner)[SharedViewModel::class.java]
         // Создаем и устанавливаем адаптер
-        poverkaAdapter = PoverkaAdapter(this, poverkaDTO)
+        poverkaAdapter = PoverkaAdapter(this, poverkaDTO, sharedViewModel)
         recyclerView.adapter = poverkaAdapter
 
         // Инициализируем launcher для камеры и редактирования
