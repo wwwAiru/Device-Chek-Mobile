@@ -2,10 +2,11 @@ package com.example.deviceinspectionapp
 
 import PoverkaDTO
 import android.Manifest
-import android.app.Application
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
 import android.view.Menu
@@ -19,7 +20,6 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -44,7 +44,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private lateinit var cloudIcon: ImageView
     private lateinit var sharedViewModel: SharedViewModel
-
+    private lateinit var mainService: Service
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +53,7 @@ class MainActivity : AppCompatActivity() {
 
         initializeComponents()
         setupUI()
+        observeUploadState()
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -65,10 +67,12 @@ class MainActivity : AppCompatActivity() {
                 startSettingsActivity()
                 true
             }
+
             R.id.action_upload -> {
                 uploadPhotos()
                 true
             }
+
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -80,10 +84,6 @@ class MainActivity : AppCompatActivity() {
         poverkaDTO = TestData.createTestInspectionData()
         cameraAppPackageName = findCameraApp()
         sharedViewModel = ViewModelProvider(AppViewModelStoreOwner)[SharedViewModel::class.java]
-        sharedViewModel.uploadState.observe(this) { state ->
-            Log.d("MainActivity", "UploadState изменился: $state")
-            updateState(state)
-        }
 
         if (cameraAppPackageName == null) {
             Toast.makeText(this, "Приложение камеры не найдено. Завершаем работу.", Toast.LENGTH_LONG).show()
@@ -178,14 +178,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun uploadPhotos() {
-        CoroutineScope(Dispatchers.Main).launch {
+        CoroutineScope(Dispatchers.IO).launch {
             mainService.uploadAllPhotos(
                 this@MainActivity,
                 Json.encodeToString(poverkaDTO),
-                photoDirectory,
-                ::updateProgress,
-                ::updateState
-            )
+                photoDirectory
+            ) { progress ->
+                updateUploadUI(progress)
+            }
             runOnUiThread {
                 if (!mainService.uploadingMessage.isNullOrEmpty()) {
                     Toast.makeText(this@MainActivity, mainService.uploadingMessage, Toast.LENGTH_LONG).show()
@@ -195,30 +195,45 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateProgress(progress: Int) {
-        Log.d("ProgressBar", "Обновление прогресса: $progress")
-
         if (progressBar.visibility == View.GONE) {
             progressBar.visibility = View.VISIBLE
-            Log.d("ProgressBar", "Прогресс-бар стал видимым")
         }
-
         progressBar.progress = progress
-
-        if (progress >= 100) {
+        if (progress >= 100 || progress < 0) {
             progressBar.visibility = View.GONE
-            Log.d("ProgressBar", "Прогресс-бар скрыт, загрузка завершена")
+            updateState(UploadState.SUCCESS)
+        }
+    }
+
+    private fun observeUploadState() {
+        sharedViewModel.uploadState.observe(this) { state ->
+            runOnUiThread {
+                when (state!!) {
+                    UploadState.DEFAULT -> cloudIcon.setImageResource(R.drawable.ic_cloud_default)
+                    UploadState.PENDING -> cloudIcon.setImageResource(R.drawable.ic_cloud_pending)
+                    UploadState.UPLOADING -> cloudIcon.setImageResource(R.drawable.ic_cloud_uploading)
+                    UploadState.SUCCESS -> cloudIcon.setImageResource(R.drawable.ic_cloud_success)
+                    UploadState.ERROR -> cloudIcon.setImageResource(R.drawable.ic_cloud_error)
+                }
+            }
         }
     }
 
     private fun updateState(state: UploadState) {
-        runOnUiThread {
-            when (state) {
-                UploadState.DEFAULT -> cloudIcon.setImageResource(R.drawable.ic_cloud_default)
-                UploadState.UPLOADING -> cloudIcon.setImageResource(R.drawable.ic_cloud_uploading)
-                UploadState.SUCCESS -> cloudIcon.setImageResource(R.drawable.ic_cloud_success)
-                UploadState.ERROR -> cloudIcon.setImageResource(R.drawable.ic_cloud_error)
-                UploadState.PENDING -> cloudIcon.setImageResource(R.drawable.ic_cloud_pending)
+        sharedViewModel.uploadState.postValue(state)
+    }
+
+    // Метод обновления UI на основе состояния загрузки
+    private fun updateUploadUI(progress: Int) {
+        handler.post {
+            val state = when {
+                mainService.hasError -> UploadState.ERROR
+                mainService.isUploadingRunning() -> UploadState.UPLOADING
+                mainService.hasFilesToUpload -> UploadState.PENDING
+                else -> UploadState.DEFAULT
             }
+            updateState(state)
+            updateProgress(progress)
         }
     }
 }
@@ -238,4 +253,3 @@ class SharedViewModel : ViewModel() {
 object AppViewModelStoreOwner : ViewModelStoreOwner {
     override val viewModelStore = ViewModelStore()
 }
-

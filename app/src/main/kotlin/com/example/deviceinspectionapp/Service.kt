@@ -56,9 +56,14 @@ class Service(private val filesDir: File) {
     private val mutex = Mutex()
     var uploadingMessage: String? = null
     var hasFilesToUpload: Boolean = false
+    var hasError: Boolean = false
 
     init {
         loadSettings()
+    }
+
+    fun isUploadingRunning(): Boolean {
+        return mutex.isLocked
     }
 
     private fun extractUuidFromFile(file: File): UUID {
@@ -130,8 +135,6 @@ class Service(private val filesDir: File) {
             response.status.isSuccess()
         } catch (e: Exception) {
             Log.e("Service", "Ошибка соединения с сервером: ${e.localizedMessage}")
-            withContext(Dispatchers.Main) {
-            }
             false
         }
     }
@@ -140,8 +143,7 @@ class Service(private val filesDir: File) {
         context: Context,
         jsonData: String,
         photoDirectory: File,
-        updateProgress: (Int) -> Unit, // Ссылка на функцию для обновления прогресса
-        updateState: (UploadState) -> Unit // Ссылка на функцию для обновления состояния
+        updateUploadUI: (Int) -> Unit
     ) {
         var uploadedBytes: Long = 0
         var totalBytes: Long = 0
@@ -151,7 +153,8 @@ class Service(private val filesDir: File) {
         if (!isNetworkAvailable(context)) {
             uploadingMessage = "Нет подключения к интернету."
             Log.e("Service", "Нет подключения к интернету. Завершение метода.")
-            updateState(UploadState.ERROR) // Обновляем состояние
+            hasError = true
+            updateUploadUI(-1) // Обновляем UI
             return
         }
 
@@ -168,23 +171,30 @@ class Service(private val filesDir: File) {
             if (localFiles.isEmpty()) {
                 uploadingMessage = "Нет фотографий для выгрузки."
                 Log.i("Service", "Нет фотографий для выгрузки. Завершение метода.")
+                hasFilesToUpload = false
+                updateUploadUI(-1) // Обновляем UI
                 return
             }
 
             uploadingMessage = null
+
             Log.i("Service", "Файлы найдены: ${localFiles.size}. Начинаем отправку JSON.")
+
+            hasError = false // Сбрасываем ошибку при начале загрузки
 
             val jsonResponse = withContext(Dispatchers.IO) { uploadJson(jsonData) }
             if (!jsonResponse.status.isSuccess()) {
                 Log.e("Service", "Ошибка при отправке JSON: ${jsonResponse.status}")
-                updateState(UploadState.ERROR) // Обновляем состояние
+                hasError = true
+                updateUploadUI(0) // Обновляем UI
                 return
             }
 
             val uuid = Json.decodeFromString<JsonObject>(jsonData)["uuid"]?.jsonPrimitive?.content
             if (uuid.isNullOrEmpty()) {
                 Log.e("Service", "UUID отсутствует в JSON. Завершение метода.")
-                updateState(UploadState.ERROR) // Обновляем состояние
+                hasError = true
+                updateUploadUI(-1) // Обновляем UI
                 return
             }
 
@@ -203,11 +213,14 @@ class Service(private val filesDir: File) {
             if (filesToUpload.isEmpty()) {
                 uploadingMessage = "Все файлы уже загружены и актуальны."
                 Log.i("Service", "Все файлы уже загружены и актуальны. Завершение метода.")
+                hasFilesToUpload = false
+                hasError = false
+                updateUploadUI(-1) // Обновляем UI
                 return
-            }
+            } else hasFilesToUpload = true
 
             totalBytes = filesToUpload.sumOf { it.length() }
-            updateProgress(0) // Инициализация прогресса
+            updateUploadUI(0) // Инициализация прогресса
 
             // Начинаем загрузку файлов с использованием polling
             var progress = 0
@@ -247,7 +260,8 @@ class Service(private val filesDir: File) {
 
                             if (!success) {
                                 Log.e("Service", "Не удалось загрузить файл ${file.name} после $maxRetries попыток.")
-                                updateState(UploadState.ERROR) // Обновляем состояние на ошибку
+                                hasError = true
+                                updateUploadUI(progress) // Обновляем UI
                                 return
                             }
                         } else {
@@ -257,8 +271,10 @@ class Service(private val filesDir: File) {
 
                         // Обновляем прогресс
                         progress = ((uploadedBytes.toDouble() / totalBytes.toDouble()) * 100).toInt()
-                        updateProgress(progress) // Передаём прогресс через callback
+                        updateUploadUI(progress) // Передаём прогресс через callback
                     } catch (e: Exception) {
+                        hasError = true
+                        updateUploadUI(progress)
                         Log.e("Service", "Ошибка при обработке файла ${file.name}: ${e.localizedMessage}")
                     }
                 }
@@ -266,11 +282,12 @@ class Service(private val filesDir: File) {
 
             uploadingMessage = "Все фото отправлены"
             Log.i("Service", "Все фото отправлены.")
-            updateState(UploadState.SUCCESS) // Обновляем состояние на успешное завершение
+            updateUploadUI(100) // Обновляем UI
 
         } catch (e: Exception) {
             Log.e("Service", "Ошибка при выполнении метода: ${e.localizedMessage}")
-            updateState(UploadState.ERROR) // Обновляем состояние на ошибку
+            hasError = true
+            updateUploadUI(0) // Обновляем UI
         } finally {
             Log.i("Service", "Освобождаем мьютекс.")
             mutex.unlock() // Освобождаем мьютекс
@@ -278,9 +295,6 @@ class Service(private val filesDir: File) {
 
         Log.d("Service", "Метод uploadAllPhotos завершён.")
     }
-
-
-
 
     private suspend fun getServerFileList(fileUUIDs: Set<String>): Set<FileMetadata> {
         val response: HttpResponse = client.post("http://${settings.serverAddress}/files") {
