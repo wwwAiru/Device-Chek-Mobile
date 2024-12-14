@@ -145,6 +145,8 @@ class Service(private val filesDir: File) {
     ) {
         var uploadedBytes: Long = 0
         var totalBytes: Long = 0
+        val maxRetries = 5 // Максимальное количество попыток
+        val initialDelay = 1000L // Начальная задержка в миллисекундах
 
         if (!isNetworkAvailable(context)) {
             uploadingMessage = "Нет подключения к интернету."
@@ -220,13 +222,35 @@ class Service(private val filesDir: File) {
                         val shouldUpload = serverFileMetadata == null || file.lastModified() > serverFileMetadata.lastModified
 
                         if (shouldUpload) {
-                            val response = withContext(Dispatchers.IO) { uploadPhoto(file, uuid) }
-                            if (response.status.isSuccess()) {
-                                Log.i("Service", "Файл ${file.name} успешно загружен.")
-                                uploadedBytes += file.length()
-                            } else {
-                                Log.e("Service", "Ошибка загрузки файла ${file.name}: ${response.status}")
-                                continue
+                            var retries = 0
+                            var delay = initialDelay
+                            var success = false
+
+                            while (retries < maxRetries && !success) {
+                                try {
+                                    val response = withContext(Dispatchers.IO) { uploadPhoto(file, uuid) }
+                                    if (response.status.isSuccess()) {
+                                        Log.i("Service", "Файл ${file.name} успешно загружен.")
+                                        uploadedBytes += file.length()
+                                        success = true
+                                    } else {
+                                        Log.e("Service", "Ошибка загрузки файла ${file.name}: ${response.status}")
+                                        retries++
+                                        delay(delay)
+                                        delay *= 2 // Увеличиваем задержку для следующей попытки
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("Service", "Исключение при загрузке файла ${file.name}: ${e.localizedMessage}")
+                                    retries++
+                                    delay(delay)
+                                    delay *= 2 // Увеличиваем задержку для следующей попытки
+                                }
+                            }
+
+                            if (!success) {
+                                Log.e("Service", "Не удалось загрузить файл ${file.name} после $maxRetries попыток.")
+                                updateState(UploadState.ERROR) // Обновляем состояние на ошибку
+                                return
                             }
                         } else {
                             Log.i("Service", "Файл ${file.name} уже загружен и актуален.")
@@ -256,9 +280,6 @@ class Service(private val filesDir: File) {
 
         Log.d("Service", "Метод uploadAllPhotos завершён.")
     }
-
-
-
 
 
 
