@@ -23,6 +23,7 @@ import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -139,22 +140,20 @@ class Service(private val filesDir: File) {
         context: Context,
         jsonData: String,
         photoDirectory: File,
-        progressListener: ProgressListener,
-        uploadStateListener: UploadStateListener
+        updateProgress: (Int) -> Unit, // Ссылка на функцию для обновления прогресса
+        updateState: (UploadState) -> Unit // Ссылка на функцию для обновления состояния
     ) {
         var uploadedBytes: Long = 0
-        val totalBytes: Long
+        var totalBytes: Long = 0
 
         if (!isNetworkAvailable(context)) {
             uploadingMessage = "Нет подключения к интернету."
             Log.e("Service", "Нет подключения к интернету. Завершение метода.")
-            withContext(Dispatchers.Main) {
-                uploadStateListener.updateState(UploadState.ERROR)
-            }
+            updateState(UploadState.ERROR) // Обновляем состояние
             return
         }
 
-        if (!mutex.tryLock()) {
+        if (!withContext(Dispatchers.IO) { mutex.tryLock() }) {
             Log.i("Service", "Загрузка уже выполняется. Завершение метода.")
             return
         }
@@ -167,59 +166,61 @@ class Service(private val filesDir: File) {
             if (localFiles.isEmpty()) {
                 uploadingMessage = "Нет фотографий для выгрузки."
                 Log.i("Service", "Нет фотографий для выгрузки. Завершение метода.")
-                withContext(Dispatchers.Main) {
-                    uploadStateListener.updateState(UploadState.DEFAULT)
-                }
+                updateState(UploadState.DEFAULT) // Обновляем состояние
                 return
             }
 
             uploadingMessage = null
             Log.i("Service", "Файлы найдены: ${localFiles.size}. Начинаем отправку JSON.")
 
-            // Вычисление общего размера всех файлов
-            totalBytes = localFiles.sumOf { it.length() }
-
-            withContext(Dispatchers.Main) {
-                progressListener.updateProgress(0) // Устанавливаем начальный прогресс
-            }
-
-            val jsonResponse = withContext(Dispatchers.IO) {
-                uploadJson(jsonData)
-            }
+            val jsonResponse = withContext(Dispatchers.IO) { uploadJson(jsonData) }
             if (!jsonResponse.status.isSuccess()) {
                 Log.e("Service", "Ошибка при отправке JSON: ${jsonResponse.status}")
-                withContext(Dispatchers.Main) {
-                    uploadStateListener.updateState(UploadState.ERROR)
-                }
+                updateState(UploadState.ERROR) // Обновляем состояние
                 return
             }
 
             val uuid = Json.decodeFromString<JsonObject>(jsonData)["uuid"]?.jsonPrimitive?.content
             if (uuid.isNullOrEmpty()) {
                 Log.e("Service", "UUID отсутствует в JSON. Завершение метода.")
-                withContext(Dispatchers.Main) {
-                    uploadStateListener.updateState(UploadState.ERROR)
-                }
+                updateState(UploadState.ERROR) // Обновляем состояние
                 return
             }
 
-            // Получение списка файлов с сервера
             val serverFileList = withContext(Dispatchers.IO) {
                 getServerFileList(localFiles.mapNotNull { extractUuidFromFile(it).toString() }.toSet())
             }
 
             Log.i("Service", "Метаданные файлов на сервере получены: ${serverFileList.size}")
 
-            for (file in localFiles) {
-                try {
-                    val serverFileMetadata = serverFileList.find { it.fileName == file.name }
-                    val shouldUpload = serverFileMetadata == null || file.lastModified() > serverFileMetadata.lastModified
+            // Проверяем, есть ли файлы для загрузки
+            val filesToUpload = localFiles.filter { file ->
+                val serverFileMetadata = serverFileList.find { it.fileName == file.name }
+                serverFileMetadata == null || file.lastModified() > serverFileMetadata.lastModified
+            }
 
-                    when {
-                        shouldUpload -> {
-                            val response = withContext(Dispatchers.IO) {
-                                uploadPhoto(file, uuid)
-                            }
+            if (filesToUpload.isEmpty()) {
+                uploadingMessage = "Все файлы уже загружены и актуальны."
+                Log.i("Service", "Все файлы уже загружены и актуальны. Завершение метода.")
+                updateState(UploadState.DEFAULT) // Обновляем состояние
+                return
+            }
+
+            totalBytes = filesToUpload.sumOf { it.length() }
+            updateProgress(0) // Инициализация прогресса
+
+            // Начинаем загрузку файлов с использованием polling
+            var progress = 0
+            while (progress < 100) {
+                for (file in filesToUpload) {
+                    // Искуственное ожидание для polling (например, каждую секунду)
+                    delay(500)
+                    try {
+                        val serverFileMetadata = serverFileList.find { it.fileName == file.name }
+                        val shouldUpload = serverFileMetadata == null || file.lastModified() > serverFileMetadata.lastModified
+
+                        if (shouldUpload) {
+                            val response = withContext(Dispatchers.IO) { uploadPhoto(file, uuid) }
                             if (response.status.isSuccess()) {
                                 Log.i("Service", "Файл ${file.name} успешно загружен.")
                                 uploadedBytes += file.length()
@@ -227,41 +228,37 @@ class Service(private val filesDir: File) {
                                 Log.e("Service", "Ошибка загрузки файла ${file.name}: ${response.status}")
                                 continue
                             }
-                        }
-                        else -> {
+                        } else {
                             Log.i("Service", "Файл ${file.name} уже загружен и актуален.")
                             uploadedBytes += file.length()
                         }
-                    }
 
-                    val progress = ((uploadedBytes.toDouble() / totalBytes.toDouble()) * 100).toInt()
-                    withContext(Dispatchers.Main) {
-                        progressListener.updateProgress(progress)
+                        // Обновляем прогресс
+                        progress = ((uploadedBytes.toDouble() / totalBytes.toDouble()) * 100).toInt()
+                        updateProgress(progress) // Передаём прогресс через callback
+                    } catch (e: Exception) {
+                        Log.e("Service", "Ошибка при обработке файла ${file.name}: ${e.localizedMessage}")
                     }
-
-                } catch (e: Exception) {
-                    Log.e("Service", "Ошибка при обработке файла ${file.name}: ${e.localizedMessage}")
                 }
             }
 
             uploadingMessage = "Все фото отправлены"
             Log.i("Service", "Все фото отправлены.")
-
-            withContext(Dispatchers.Main) {
-                uploadStateListener.updateState(UploadState.SUCCESS)
-            }
+            updateState(UploadState.SUCCESS) // Обновляем состояние на успешное завершение
 
         } catch (e: Exception) {
             Log.e("Service", "Ошибка при выполнении метода: ${e.localizedMessage}")
-            withContext(Dispatchers.Main) {
-                uploadStateListener.updateState(UploadState.ERROR)
-            }
+            updateState(UploadState.ERROR) // Обновляем состояние на ошибку
         } finally {
             Log.i("Service", "Освобождаем мьютекс.")
-            mutex.unlock()
+            mutex.unlock() // Освобождаем мьютекс
         }
+
         Log.d("Service", "Метод uploadAllPhotos завершён.")
     }
+
+
+
 
 
 

@@ -27,7 +27,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 
-class MainActivity : AppCompatActivity(), ProgressListener, UploadStateListener {
+class MainActivity : AppCompatActivity() {
 
     private var cameraAppPackageName: String? = null
     private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
@@ -169,8 +169,8 @@ class MainActivity : AppCompatActivity(), ProgressListener, UploadStateListener 
                 this@MainActivity,
                 Json.encodeToString(poverkaDTO),
                 photoDirectory,
-                this@MainActivity,
-                this@MainActivity
+                ::updateProgress,
+                ::updateState
             )
             runOnUiThread {
                 if (!mainService.uploadingMessage.isNullOrEmpty()) {
@@ -180,7 +180,7 @@ class MainActivity : AppCompatActivity(), ProgressListener, UploadStateListener 
         }
     }
 
-    override fun updateProgress(progress: Int) {
+    private fun updateProgress(progress: Int) {
         Log.d("ProgressBar", "Обновление прогресса: $progress")
 
         if (progressBar.visibility == View.GONE) {
@@ -196,7 +196,7 @@ class MainActivity : AppCompatActivity(), ProgressListener, UploadStateListener 
         }
     }
 
-    override fun updateState(state: UploadState) {
+    private fun updateState(state: UploadState) {
         runOnUiThread {
             when (state) {
                 UploadState.DEFAULT -> cloudIcon.setImageResource(R.drawable.ic_cloud_default)
@@ -215,12 +215,4 @@ enum class UploadState {
     UPLOADING,
     SUCCESS,
     ERROR
-}
-
-interface ProgressListener {
-    fun updateProgress(progress: Int)
-}
-
-interface UploadStateListener {
-    fun updateState(state: UploadState)
 }
