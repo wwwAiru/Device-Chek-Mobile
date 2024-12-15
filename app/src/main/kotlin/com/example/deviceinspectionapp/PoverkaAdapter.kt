@@ -19,7 +19,6 @@ import java.io.FileOutputStream
 class PoverkaAdapter(
     private val context: DeviceCheckActivity,
     private val poverkaDTO: PoverkaDTO,
-    private val viewModel: SharedViewModel
 ) : RecyclerView.Adapter<StageViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): StageViewHolder {
@@ -87,7 +86,7 @@ class PoverkaAdapter(
         // Уведомляем адаптер об изменениях конкретного элемента
         notifyItemChanged(stageIdx, UpdateEvent.PhotoUpdate(photoIdx))
         // обновление статуса в mainActivity
-        viewModel.uploadState.value = UploadState.PENDING
+        mainService.notifyFilesChanged()
     }
 
 
@@ -103,7 +102,7 @@ class PoverkaAdapter(
         }
         notifyItemChanged(call.stageIdx, UpdateEvent.PhotoUpdate(call.photoIdx))
         // обновление статуса в mainActivity
-        viewModel.uploadState.value = UploadState.PENDING
+        mainService.notifyFilesChanged()
     }
 }
 

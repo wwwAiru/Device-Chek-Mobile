@@ -22,21 +22,19 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 import java.util.UUID
 
 lateinit var mainService: Service
 
-class Service(private val filesDir: File) {
+class Service(val updateFilesSyncUI: () -> Unit, private val filesDir: File, private val context: Context) {
 
     var settings: Settings = Settings("192.168.0.118:8080", "user")
         set(value) {
@@ -54,16 +52,31 @@ class Service(private val filesDir: File) {
     }
 
     private val mutex = Mutex()
-    var uploadingMessage: String? = null
+    @Volatile
     var hasFilesToUpload: Boolean = false
-    var hasError: Boolean = false
+        private set
+    @Volatile
+    var progress = 0
+        private set
+    @Volatile
+    var uploadingErrorMessage: String? = null
+        private set
 
     init {
         loadSettings()
     }
 
+    fun notifyFilesChanged() {
+        hasFilesToUpload = true
+        updateFilesSyncUI()
+    }
+
     fun isUploadingRunning(): Boolean {
         return mutex.isLocked
+    }
+
+    fun hasUploadingError(): Boolean {
+        return uploadingErrorMessage != null
     }
 
     private fun extractUuidFromFile(file: File): UUID {
@@ -112,16 +125,17 @@ class Service(private val filesDir: File) {
         }
     }
 
-    private suspend fun uploadPhoto(photo: File, uuid: String): HttpResponse {
-        Log.i("Service", "Отправка файла: ${photo.name} с UUID: $uuid")
+    private suspend fun uploadFile(file: File): HttpResponse {
+        val uuid = extractUuidFromFile(file).toString()
+        Log.i("Service", "Отправка файла: ${file.name} с UUID: $uuid")
         return client.submitFormWithBinaryData(
             url = "http://${settings.serverAddress}/upload/photo",
             formData = formData {
                 append("uuid", uuid)
-                append("file", photo.readBytes(), Headers.build {
+                append("file", file.readBytes(), Headers.build {
                     append(
                         HttpHeaders.ContentDisposition,
-                        "form-data; name=\"file\"; filename=\"${photo.name}\""
+                        "form-data; name=\"file\"; filename=\"${file.name}\""
                     )
                     append(HttpHeaders.ContentType, "application/octet-stream")
                 })
@@ -139,164 +153,112 @@ class Service(private val filesDir: File) {
         }
     }
 
-    suspend fun uploadAllPhotos(
-        context: Context,
-        jsonData: String,
-        photoDirectory: File,
-        updateUploadUI: (Int) -> Unit
-    ) {
-        var uploadedBytes: Long = 0
-        var totalBytes: Long = 0
-        val maxRetries = 5 // Максимальное количество попыток
-        val initialDelay = 500L // Начальная задержка в миллисекундах
+    private suspend fun findFilesToUpload(): List<File> {
+        val imagesDir = File(filesDir, "images")
+        Log.i("Service", "Путь к директории файлов: ${imagesDir.absolutePath}")
 
+        val localFiles = imagesDir.listFiles()
+            ?.filter { it.extension in listOf("jpg", "jpeg", "json") }
+            ?: emptyList()
+
+        Log.i("Service", "Найденные файлы: ${localFiles.map { it.name }}")
+
+        val serverFileList = getServerFileList(localFiles.mapNotNull { extractUuidFromFile(it).toString() }.toSet())
+
+        val filesToUpload = localFiles.filter { file ->
+            val serverFileMetadata = serverFileList.find { it.fileName == file.name }
+            serverFileMetadata == null || file.lastModified() > serverFileMetadata.lastModified
+        }
+        return filesToUpload
+    }
+
+
+
+
+    fun uploadAllPhotos() {
         if (!isNetworkAvailable(context)) {
-            uploadingMessage = "Нет подключения к интернету."
+            uploadingErrorMessage = "Нет подключения к интернету."
             Log.e("Service", "Нет подключения к интернету. Завершение метода.")
-            hasError = true
-            updateUploadUI(-1) // Обновляем UI
+            updateFilesSyncUI()
             return
         }
 
-        if (!withContext(Dispatchers.IO) { mutex.tryLock() }) {
-            Log.i("Service", "Загрузка уже выполняется. Завершение метода.")
-            return
-        }
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                if (!mutex.tryLock()) {
+                    Log.d("Service", "Files sync process already running - skip")
+                    return@launch
+                }
+                Log.d("Service", "Files sync process started.")
+                var filesToUpload = findFilesToUpload()
+                if (filesToUpload.isEmpty()) {
+                    Log.d("Service", "No files to upload found.")
+                    hasFilesToUpload = false
+                    uploadingErrorMessage = null
+                    updateFilesSyncUI()
+                    return@launch
+                }
+                Log.d("Service", "Found files to upload.")
+                hasFilesToUpload = true
+                progress = 0
+                uploadingErrorMessage = null
+                updateFilesSyncUI()
 
-        try {
-            val localFiles = photoDirectory.listFiles()
-                ?.filter { it.extension in listOf("jpg", "jpeg") }
-                ?: emptyList()
+                for (i in 0..10000) {
 
-            if (localFiles.isEmpty()) {
-                uploadingMessage = "Нет фотографий для выгрузки."
-                Log.i("Service", "Нет фотографий для выгрузки. Завершение метода.")
-                hasFilesToUpload = false
-                updateUploadUI(-1) // Обновляем UI
-                return
-            }
+                    val totalBytes = filesToUpload.sumOf { it.length() }
+                    var uploadedBytes = 0L
 
-            uploadingMessage = null
-
-            Log.i("Service", "Файлы найдены: ${localFiles.size}. Начинаем отправку JSON.")
-
-            hasError = false // Сбрасываем ошибку при начале загрузки
-
-            val jsonResponse = withContext(Dispatchers.IO) { uploadJson(jsonData) }
-            if (!jsonResponse.status.isSuccess()) {
-                Log.e("Service", "Ошибка при отправке JSON: ${jsonResponse.status}")
-                hasError = true
-                updateUploadUI(0) // Обновляем UI
-                return
-            }
-
-            val uuid = Json.decodeFromString<JsonObject>(jsonData)["uuid"]?.jsonPrimitive?.content
-            if (uuid.isNullOrEmpty()) {
-                Log.e("Service", "UUID отсутствует в JSON. Завершение метода.")
-                hasError = true
-                updateUploadUI(-1) // Обновляем UI
-                return
-            }
-
-            val serverFileList = withContext(Dispatchers.IO) {
-                getServerFileList(localFiles.mapNotNull { extractUuidFromFile(it).toString() }.toSet())
-            }
-
-            Log.i("Service", "Метаданные файлов на сервере получены: ${serverFileList.size}")
-
-            // Проверяем, есть ли файлы для загрузки
-            val filesToUpload = localFiles.filter { file ->
-                val serverFileMetadata = serverFileList.find { it.fileName == file.name }
-                serverFileMetadata == null || file.lastModified() > serverFileMetadata.lastModified
-            }
-
-            if (filesToUpload.isEmpty()) {
-                uploadingMessage = "Все файлы уже загружены и актуальны."
-                Log.i("Service", "Все файлы уже загружены и актуальны. Завершение метода.")
-                hasFilesToUpload = false
-                hasError = false
-                updateUploadUI(-1) // Обновляем UI
-                return
-            } else hasFilesToUpload = true
-
-            totalBytes = filesToUpload.sumOf { it.length() }
-            updateUploadUI(0) // Инициализация прогресса
-
-            // Начинаем загрузку файлов с использованием polling
-            var progress = 0
-            while (progress < 100) {
-                for (file in filesToUpload) {
-                    // Искуственное ожидание для polling (например, каждую секунду)
-                    delay(500)
-                    try {
-                        val serverFileMetadata = serverFileList.find { it.fileName == file.name }
-                        val shouldUpload = serverFileMetadata == null || file.lastModified() > serverFileMetadata.lastModified
-
-                        if (shouldUpload) {
-                            var retries = 0
-                            var delay = initialDelay
-                            var success = false
-
-                            while (retries < maxRetries && !success) {
-                                try {
-                                    val response = withContext(Dispatchers.IO) { uploadPhoto(file, uuid) }
-                                    if (response.status.isSuccess()) {
-                                        Log.i("Service", "Файл ${file.name} успешно загружен.")
-                                        uploadedBytes += file.length()
-                                        success = true
-                                    } else {
-                                        Log.e("Service", "Ошибка загрузки файла ${file.name}: ${response.status}")
-                                        retries++
-                                        delay(delay)
-                                        delay *= 2 // Увеличиваем задержку для следующей попытки
-                                    }
-                                } catch (e: Exception) {
-                                    Log.e("Service", "Исключение при загрузке файла ${file.name}: ${e.localizedMessage}")
-                                    retries++
-                                    delay(delay)
-                                    delay *= 2 // Увеличиваем задержку для следующей попытки
-                                }
+                    for (file in filesToUpload) {
+                        try {
+                            val response = uploadFile(file)
+                            if (response.status.isSuccess()) {
+                                Log.i("Service", "Файл ${file.name} успешно загружен.")
+                                uploadedBytes += file.length()
+                                progress = (uploadedBytes / totalBytes).toInt() * 100
+                                updateFilesSyncUI()
+                            } else {
+                                Log.e(
+                                    "Service",
+                                    "Ошибка загрузки файла ${file.name}: ${response.status}"
+                                )
+                                uploadingErrorMessage =
+                                    "Ошибка загрузки файла ${file.name}: ${response.status}"
+                                return@launch
                             }
-
-                            if (!success) {
-                                Log.e("Service", "Не удалось загрузить файл ${file.name} после $maxRetries попыток.")
-                                hasError = true
-                                updateUploadUI(progress) // Обновляем UI
-                                return
-                            }
-                        } else {
-                            Log.i("Service", "Файл ${file.name} уже загружен и актуален.")
-                            uploadedBytes += file.length()
+                        } catch (e: Exception) {
+                            Log.e(
+                                "Service",
+                                "Исключение при загрузке файла ${file.name}: ${e.localizedMessage}"
+                            )
+                            uploadingErrorMessage =
+                                "Исключение при загрузке файла ${file.name}: ${e.localizedMessage}"
+                            return@launch
                         }
+                    }
 
-                        // Обновляем прогресс
-                        progress = ((uploadedBytes.toDouble() / totalBytes.toDouble()) * 100).toInt()
-                        updateUploadUI(progress) // Передаём прогресс через callback
-                    } catch (e: Exception) {
-                        hasError = true
-                        updateUploadUI(progress)
-                        Log.e("Service", "Ошибка при обработке файла ${file.name}: ${e.localizedMessage}")
+                    filesToUpload = findFilesToUpload()
+                    if (filesToUpload.isEmpty()) {
+                        Log.d("Service", "All files are uploaded.")
+                        hasFilesToUpload = false
+                        uploadingErrorMessage = null
+                        progress = 100
+                        break
                     }
                 }
+            } catch (e: Exception) {
+                Log.e("Service", e.toString())
+                uploadingErrorMessage = e.localizedMessage
+            } finally {
+                Log.d("Service", "Files sync process finished.")
+                mutex.unlock()
+                updateFilesSyncUI()
             }
-
-            uploadingMessage = "Все фото отправлены"
-            Log.i("Service", "Все фото отправлены.")
-            updateUploadUI(100) // Обновляем UI
-
-        } catch (e: Exception) {
-            Log.e("Service", "Ошибка при выполнении метода: ${e.localizedMessage}")
-            hasError = true
-            updateUploadUI(0) // Обновляем UI
-        } finally {
-            Log.i("Service", "Освобождаем мьютекс.")
-            mutex.unlock() // Освобождаем мьютекс
         }
-
-        Log.d("Service", "Метод uploadAllPhotos завершён.")
     }
 
     private suspend fun getServerFileList(fileUUIDs: Set<String>): Set<FileMetadata> {
+        Log.i("Service", "Отправка UUID на сервер: $fileUUIDs")
         val response: HttpResponse = client.post("http://${settings.serverAddress}/files") {
             contentType(ContentType.Application.Json)
             setBody(Json.encodeToString(fileUUIDs))
@@ -304,11 +266,13 @@ class Service(private val filesDir: File) {
 
         if (!response.status.isSuccess()) {
             Log.e("Service", "Ошибка ответа сервера: ${response.status}")
+            Log.e("Service", "Ответ сервера: ${response.bodyAsText()}")
             throw IllegalStateException("Ошибка при получении списка файлов с сервера: ${response.status}")
         }
 
         return Json.decodeFromString(response.bodyAsText())
     }
+
 }
 
 @Serializable
