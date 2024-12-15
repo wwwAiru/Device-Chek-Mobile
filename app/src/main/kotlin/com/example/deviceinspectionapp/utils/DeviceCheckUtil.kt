@@ -3,12 +3,18 @@ package com.example.deviceinspectionapp.utils
 import PhotoDTO
 import PoverkaDTO
 import StageDTO
+import android.content.Context
+import android.util.Log
+import android.widget.Toast
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.io.File
 
-class TestData private constructor() {
+class DeviceCheckUtil private constructor() {
 
     companion object {
-        fun createTestInspectionData(): PoverkaDTO {
-            return PoverkaDTO(
+        fun createCheckDataJson(context: Context): PoverkaDTO {
+            val poverkaDTO = PoverkaDTO(
                 uuid = "3b45f2a2-d2ad-4a0a-bbcf-68b8e25326cf",
                 stages = listOf(
                     StageDTO(
@@ -53,6 +59,11 @@ class TestData private constructor() {
                     )
                 )
             )
+
+            // Сохранение JSON поверки с его UUID
+            savePoverkaJson(context, poverkaDTO)
+
+            return poverkaDTO
         }
 
         private fun generatePhotos(stageCodeName: String, count: Int): List<PhotoDTO> {
@@ -70,6 +81,22 @@ class TestData private constructor() {
                 )
             }
             return photos
+        }
+
+        private fun savePoverkaJson(context: Context, poverkaDTO: PoverkaDTO) {
+            val uuid = poverkaDTO.uuid
+            val jsonFileName = "$uuid.json"
+            val jsonFile = File(context.filesDir, "checks/$jsonFileName")
+            val jsonString = Json.encodeToString(poverkaDTO)
+
+            try {
+                jsonFile.parentFile?.mkdirs()
+                jsonFile.writeText(jsonString)
+                Log.d("TestData", "JSON поверки сохранен: ${jsonFile.absolutePath}")
+            } catch (e: Exception) {
+                Log.e("TestData", "Ошибка при сохранении JSON поверки: ${e.message}")
+                Toast.makeText(context, "Ошибка при сохранении JSON поверки.", Toast.LENGTH_LONG).show()
+            }
         }
     }
 }

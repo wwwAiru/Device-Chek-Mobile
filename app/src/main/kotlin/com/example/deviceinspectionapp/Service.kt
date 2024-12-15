@@ -154,10 +154,10 @@ class Service(val updateFilesSyncUI: () -> Unit, private val filesDir: File, pri
     }
 
     private suspend fun findFilesToUpload(): List<File> {
-        val imagesDir = File(filesDir, "images")
-        Log.i("Service", "Путь к директории файлов: ${imagesDir.absolutePath}")
+        val checksDir = File(filesDir, "checks")
+        Log.i("Service", "Путь к директории файлов: ${checksDir.absolutePath}")
 
-        val localFiles = imagesDir.listFiles()
+        val localFiles = checksDir.listFiles()
             ?.filter { it.extension in listOf("jpg", "jpeg", "json") }
             ?: emptyList()
 

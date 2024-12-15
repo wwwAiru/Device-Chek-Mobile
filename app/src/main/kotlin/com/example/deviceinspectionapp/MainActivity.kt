@@ -18,7 +18,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.example.deviceinspectionapp.utils.TestData
+import com.example.deviceinspectionapp.utils.DeviceCheckUtil
 import com.google.android.material.appbar.MaterialToolbar
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -69,7 +69,7 @@ class MainActivity : AppCompatActivity() {
         Log.d("","mainService = Service(::updateUploadingState, filesDir, this)")
         setupPermissionLauncher()
         setupPhotoDirectory()
-        poverkaDTO = TestData.createTestInspectionData()
+        poverkaDTO = DeviceCheckUtil.createCheckDataJson(this)
         cameraAppPackageName = findCameraApp()
 
         if (cameraAppPackageName == null) {
@@ -108,7 +108,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupPhotoDirectory() {
-        photoDirectory = File(filesDir, "images")
+        photoDirectory = File(filesDir, "checks")
         if (!photoDirectory.exists() && !photoDirectory.mkdirs()) {
             Toast.makeText(this, "Не удалось создать директорию для фото, приложение закрыто.", Toast.LENGTH_LONG).show()
             finish()
