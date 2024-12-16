@@ -54,6 +54,9 @@ dependencies {
     implementation ("io.ktor:ktor-client-serialization:2.3.3")
     implementation ("io.ktor:ktor-client-content-negotiation:2.3.3")
     implementation ("io.ktor:ktor-serialization-kotlinx-json:2.3.3")
+    // воркер шедулер
+    implementation ("androidx.work:work-runtime-ktx:2.7.1")
+
 
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.serialization.core)

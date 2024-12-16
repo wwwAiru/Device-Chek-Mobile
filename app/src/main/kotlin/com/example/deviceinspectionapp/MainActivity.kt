@@ -17,9 +17,13 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.work.WorkManager
 import com.example.deviceinspectionapp.utils.DeviceCheckUtil
+import com.example.deviceinspectionapp.workers.UploadWorker
 import com.google.android.material.appbar.MaterialToolbar
 import java.io.File
+import java.util.concurrent.TimeUnit
+import androidx.work.PeriodicWorkRequestBuilder
 
 class MainActivity : AppCompatActivity() {
 
@@ -37,6 +41,8 @@ class MainActivity : AppCompatActivity() {
 
         initializeComponents()
         setupUI()
+        //шедулер 15 минут
+        schedulePeriodicUpload(15)
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -110,6 +116,12 @@ class MainActivity : AppCompatActivity() {
         } else {
             Log.d("MainActivity", "Директория для фото: ${photoDirectory.absolutePath}")
         }
+    }
+
+    private fun schedulePeriodicUpload(timeMinutes: Long) {
+        val uploadRequest = PeriodicWorkRequestBuilder<UploadWorker>(timeMinutes, TimeUnit.MINUTES)
+            .build()
+        WorkManager.getInstance(this).enqueue(uploadRequest)
     }
 
     private fun findCameraApp(): String? {
