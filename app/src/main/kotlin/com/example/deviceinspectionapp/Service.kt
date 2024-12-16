@@ -190,7 +190,11 @@ class Service(val updateFilesSyncUI: () -> Unit, private val filesDir: File, pri
                     return@launch
                 }
                 Log.d("Service", "Files sync process started.")
+
+                var totalBytes = 0L
+                var uploadedBytes = 0L
                 var filesToUpload = findFilesToUpload()
+
                 if (filesToUpload.isEmpty()) {
                     Log.d("Service", "No files to upload found.")
                     hasFilesToUpload = false
@@ -205,9 +209,7 @@ class Service(val updateFilesSyncUI: () -> Unit, private val filesDir: File, pri
                 updateFilesSyncUI()
 
                 for (i in 0..10000) {
-
-                    val totalBytes = filesToUpload.sumOf { it.length() }
-                    var uploadedBytes = 0L
+                    totalBytes += filesToUpload.sumOf { it.length() }
 
                     for (file in filesToUpload) {
                         try {
@@ -215,7 +217,8 @@ class Service(val updateFilesSyncUI: () -> Unit, private val filesDir: File, pri
                             if (response.status.isSuccess()) {
                                 Log.i("Service", "Файл ${file.name} успешно загружен.")
                                 uploadedBytes += file.length()
-                                progress = (uploadedBytes / totalBytes).toInt() * 100
+                                progress = ((uploadedBytes.toDouble() / totalBytes.toDouble()) * 100).toInt()
+                                Log.d("Service", "uploadedBytes = $uploadedBytes; /totalBytes = $totalBytes Progress: $progress")
                                 updateFilesSyncUI()
                             } else {
                                 Log.e(

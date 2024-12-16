@@ -1,6 +1,5 @@
 package com.example.deviceinspectionapp
 
-import PoverkaDTO
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -20,8 +19,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.deviceinspectionapp.utils.DeviceCheckUtil
 import com.google.android.material.appbar.MaterialToolbar
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.io.File
 
 class MainActivity : AppCompatActivity() {
@@ -29,7 +26,6 @@ class MainActivity : AppCompatActivity() {
     private var cameraAppPackageName: String? = null
     private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var photoDirectory: File
-    private lateinit var poverkaDTO: PoverkaDTO
     private lateinit var toolbar: MaterialToolbar
     private lateinit var progressBar: ProgressBar
     private lateinit var cloudIcon: ImageView
@@ -69,7 +65,6 @@ class MainActivity : AppCompatActivity() {
         Log.d("","mainService = Service(::updateUploadingState, filesDir, this)")
         setupPermissionLauncher()
         setupPhotoDirectory()
-        poverkaDTO = DeviceCheckUtil.createCheckDataJson(this)
         cameraAppPackageName = findCameraApp()
 
         if (cameraAppPackageName == null) {
@@ -156,7 +151,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val poverkaJson = Json.encodeToString(poverkaDTO)
+        val poverkaJson = DeviceCheckUtil.createCheckDataJson(this)
         val intent = Intent(this, DeviceCheckActivity::class.java).apply {
             putExtra("jsonData", poverkaJson)
             putExtra("cameraAppPackageName", cameraAppPackageName)
@@ -177,7 +172,7 @@ class MainActivity : AppCompatActivity() {
                 progressBar.progress = mainService.progress
                 cloudIcon.setImageResource(R.drawable.ic_cloud_uploading)
                 return@runOnUiThread
-            }
+            } else { progressBar.visibility = View.GONE }
 
             if (mainService.hasUploadingError()) {
                 cloudIcon.setImageResource(R.drawable.ic_cloud_error)
