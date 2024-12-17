@@ -1,17 +1,18 @@
 plugins {
-    kotlin("plugin.serialization") version "2.0.21"
+    kotlin("plugin.serialization") version "2.0.0"
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.jetbrainsKotlinAndroid)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
     namespace = "com.example.deviceinspectionapp"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.deviceinspectionapp"
         minSdk = 29
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -28,18 +29,18 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
-    }
+//    composeOptions {
+//        kotlinCompilerExtensionVersion = "1.6.0-alpha08"
+//    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -48,21 +49,23 @@ android {
 }
 
 dependencies {
-    //для взаимодействия с сервером
-    implementation ("io.ktor:ktor-client-core:2.3.3")
-    implementation ("io.ktor:ktor-client-cio:2.3.3")
-    implementation ("io.ktor:ktor-client-serialization:2.3.3")
-    implementation ("io.ktor:ktor-client-content-negotiation:2.3.3")
-    implementation ("io.ktor:ktor-serialization-kotlinx-json:2.3.3")
-    // воркер шедулер
-    implementation ("androidx.work:work-runtime-ktx:2.7.1")
-
+    // Для взаимодействия с сервером
+    dependencies {
+        implementation(libs.androidx.compiler)
+    }
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.serialization)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    // Воркер шедулер
+    implementation(libs.androidx.work.runtime.ktx)
 
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.serialization.core)
-    // для переопределения ActivityResultContract
-    implementation (libs.androidx.activity.ktx)
-    implementation (libs.androidx.fragment.ktx)
+    // Для переопределения ActivityResultContract
+    implementation(libs.androidx.activity.ktx)
+    implementation(libs.androidx.fragment.ktx)
     // Базовые зависимости Android
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -82,7 +85,6 @@ dependencies {
     implementation(libs.androidx.exifinterface)
     implementation(libs.ucrop)
 
-
     // Тестовые зависимости
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -90,6 +92,6 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation (libs.leakcanary.android)
+    debugImplementation(libs.leakcanary.android)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
