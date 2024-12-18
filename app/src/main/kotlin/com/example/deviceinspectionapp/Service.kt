@@ -117,13 +117,6 @@ class Service(val updateFilesSyncUI: () -> Unit, private val filesDir: File, pri
         Log.i("Settings", "Настройки сохранены: $newSettings")
     }
 
-    private suspend fun uploadJson(jsonData: String): HttpResponse {
-        Log.i("Service", "Отправка JSON: $jsonData")
-        return client.post("http://${settings.serverAddress}/upload/json") {
-            contentType(ContentType.Application.Json)
-            setBody(jsonData)
-        }
-    }
 
     private suspend fun uploadFile(file: File): HttpResponse {
         val uuid = extractUuidFromFile(file).toString()
@@ -221,21 +214,13 @@ class Service(val updateFilesSyncUI: () -> Unit, private val filesDir: File, pri
                                 Log.d("Service", "uploadedBytes = $uploadedBytes; /totalBytes = $totalBytes Progress: $progress")
                                 updateFilesSyncUI()
                             } else {
-                                Log.e(
-                                    "Service",
-                                    "Ошибка загрузки файла ${file.name}: ${response.status}"
-                                )
-                                uploadingErrorMessage =
-                                    "Ошибка загрузки файла ${file.name}: ${response.status}"
+                                Log.e("Service", "Ошибка загрузки файла ${file.name}: ${response.status}")
+                                uploadingErrorMessage = "Ошибка загрузки файла ${file.name}: ${response.status}"
                                 return@launch
                             }
                         } catch (e: Exception) {
-                            Log.e(
-                                "Service",
-                                "Исключение при загрузке файла ${file.name}: ${e.localizedMessage}"
-                            )
-                            uploadingErrorMessage =
-                                "Исключение при загрузке файла ${file.name}: ${e.localizedMessage}"
+                            Log.e("Service", "Исключение при загрузке файла ${file.name}: ${e.localizedMessage}")
+                            uploadingErrorMessage = "Исключение при загрузке файла ${file.name}: ${e.localizedMessage}"
                             return@launch
                         }
                     }
@@ -254,7 +239,10 @@ class Service(val updateFilesSyncUI: () -> Unit, private val filesDir: File, pri
                 uploadingErrorMessage = e.localizedMessage
             } finally {
                 Log.d("Service", "Files sync process finished.")
-                mutex.unlock()
+
+                if (mutex.isLocked) {
+                    mutex.unlock()
+                }
                 updateFilesSyncUI()
             }
         }
@@ -262,7 +250,7 @@ class Service(val updateFilesSyncUI: () -> Unit, private val filesDir: File, pri
 
     private suspend fun getServerFileList(fileUUIDs: Set<String>): Set<FileMetadata> {
         Log.i("Service", "Отправка UUID на сервер: $fileUUIDs")
-        val response: HttpResponse = client.post("http://${settings.serverAddress}/files") {
+        val response = client.post("http://${settings.serverAddress}/files") {
             contentType(ContentType.Application.Json)
             setBody(Json.encodeToString(fileUUIDs))
         }
