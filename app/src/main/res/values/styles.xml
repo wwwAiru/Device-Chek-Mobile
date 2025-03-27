@@ -5,4 +5,7 @@
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
     </style>
+    <style name="UCropCustom" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="android:fitsSystemWindows">true</item>
+    </style>
 </resources>

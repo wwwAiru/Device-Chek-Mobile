@@ -48,20 +48,14 @@
         <!-- Активити библиотеки ucrop -->
         <activity
             android:name="com.yalantis.ucrop.UCropActivity"
-            android:screenOrientation="portrait" />
+            android:screenOrientation="portrait"
+            android:theme="@style/UCropCustom" />
         <!-- DeviceCheckActivity, основной активити для процесса проверки -->
         <activity android:name=".DeviceCheckActivity"
             android:screenOrientation="portrait"/>
         <activity android:name=".SettingsActivity"
             android:screenOrientation="portrait"/>
 
-
-
     </application>
-
-
-
-
-
 
 </manifest>
